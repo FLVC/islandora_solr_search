@@ -289,11 +289,32 @@ class IslandoraSolrResults {
         // we're not using l() because of active classes: http://drupal.org/node/41595
         $filter_list[] = '<a' . drupal_attributes($attr_minus) . '>(-)</a> ' . $symbol . ' ' . check_plain($filter_split[1]);
       }
+
+      if (isset($islandoraSolrQuery->internalSolrParams['collection']))
+      {
+        $collection = $islandoraSolrQuery->internalSolrParams['collection'];
+        $symbol = '=';
+        // set attributes variable for remove link
+        $attr_minus = array();
+        // set title
+        $attr_minus['title'] = t('Remove') . ' ' . $collection;
+        // set class
+        $attr_minus['class'] = 'remove-filter';
+        // set rel
+        $attr_minus['rel'] = 'nofollow';
+        // set url
+        $attr_minus['href'] = url($path, array('query' => $params));
+
+        $filter_list[] = '<a' . drupal_attributes($attr_minus) . '>(-)</a> ' . $symbol . ' ' . check_plain($collection);
+
+      }
+
       // return filter list
       $output .= '<div class="islandora-solr-filter-wrap">';
       $output .= theme('item_list', array('items' => $filter_list, 'title' => t("Enabled Filters"), 'type' => 'ul', 'attributes' => array('class' => 'islandora-solr-filter-list filter-list')));
       $output .= '</div>';
     }
+
     return $output;
   }
 

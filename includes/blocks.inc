@@ -165,6 +165,18 @@ function islandora_solr_block_view($block_name = '') {
  */
 function islandora_solr_simple_search_form($form, &$form_state) {
 
+  $collection_options = array(
+      '' => t('All Collections'),
+      'audio_collection' => t('Audio Collection'),
+      'sp_basic_image_collection' => t('Basic Image Collection'),
+      'bookCollection' => t('Book Collection'),
+      'sp_large_image_collection' => t('Large Image Collection'),
+      'sp_pdf_collection' => t('PDF Collection'),
+      'pdf_v7_collection' => t('PDF Version 7 Collection'),
+      'randys_collection' => t('Randy\'s Collection'),
+      'fau_collections' => t('All FAU Digital Collections'),
+  );
+
   $form['simple'] = array(
     '#type' => 'container',
     '#attributes' => array(
@@ -172,6 +184,11 @@ function islandora_solr_simple_search_form($form, &$form_state) {
         'container-inline')
       )
     );
+  $form['simple']['islandora_simple_collection'] = array(
+    '#type' => 'select',
+    '#default_value' => '',
+    '#options' => $collection_options,
+  );
   $form['simple']["islandora_simple_search_query"] = array(
     '#size' => '15',
     '#type' => 'textfield',
@@ -199,6 +216,12 @@ function islandora_solr_simple_search_form_submit($form, &$form_state) {
 
   // set query
   $query = array('type' => 'dismax');
+
+  $collection = $form_state['values']['islandora_simple_collection'];
+  if (isset($collection) && !empty($collection)) {
+//      $query['collection'] = $collection;
+      $query = array_merge($query, array('collection' => $collection));
+  }
 
   drupal_goto('islandora/search/' . $search_string, array('query' => $query));
 }
