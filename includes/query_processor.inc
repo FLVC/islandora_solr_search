@@ -179,6 +179,13 @@ class IslandoraSolrQueryProcessor {
       'facet' => 'true',
       'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
       'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
+      'qt' => variable_get('islandora_solr_request_handler', ''),
+      'hl' => isset($snippets) ? 'true' : NULL,
+      'hl.fl' => isset($snippets) ? $snippets : NULL,
+      'hl.fragsize' => 400,
+      'hl.simple.pre' => '<span class="islandora-solr-highlight">',
+      'hl.simple.post' => '</span>',
+        // Comma separated list configured in the block config.
       'facet.field' => explode(',', $facet_fields),
     );
 
@@ -260,6 +267,25 @@ class IslandoraSolrQueryProcessor {
     }
     elseif (!empty($base_filters)) {
       $this->solrParams['fq'] = $base_filters;
+    }
+
+    // Restrict results based on collection
+    if (isset($this->internalSolrParams['collection']))
+    {
+//      $this->solrParams['fq'][] = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $this->internalSolrParams['collection']);
+      $collection = $this->internalSolrParams['collection'];
+      $collections_filter = 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ';
+      $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
+      $query = 'select $subject from <#ri>
+               where  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
+               and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
+               and $subject <fedora-rels-ext:isMemberOfCollection> $object)
+               and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
+      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      foreach ($results as $result) {
+        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
+      }
+      $this->solrParams['fq'][] = trim($collections_filter);
     }
 
     // Restrict results based on specified namespaces.
