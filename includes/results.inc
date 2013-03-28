@@ -156,7 +156,6 @@ class IslandoraSolrResults {
     return theme('islandora_solr', array('results' => $object_results, 'elements' => $elements));
   }
 
-
   /**
    * Displays elements of the current solr query. Displays current query and
    * current filters. Includes a link to exclude the query/filter.
@@ -290,25 +289,6 @@ class IslandoraSolrResults {
         $filter_list[] = '<a' . drupal_attributes($attr_minus) . '>(-)</a> ' . $symbol . ' ' . check_plain($filter_split[1]);
       }
 
-      if (isset($islandoraSolrQuery->internalSolrParams['collection']))
-      {
-        $collection = $islandoraSolrQuery->internalSolrParams['collection'];
-        $symbol = '=';
-        // set attributes variable for remove link
-        $attr_minus = array();
-        // set title
-        $attr_minus['title'] = t('Remove') . ' ' . $collection;
-        // set class
-        $attr_minus['class'] = 'remove-filter';
-        // set rel
-        $attr_minus['rel'] = 'nofollow';
-        // set url
-        $attr_minus['href'] = url($path, array('query' => $params));
-
-        $filter_list[] = '<a' . drupal_attributes($attr_minus) . '>(-)</a> ' . $symbol . ' ' . check_plain($collection);
-
-      }
-
       // return filter list
       $output .= '<div class="islandora-solr-filter-wrap">';
       $output .= theme('item_list', array('items' => $filter_list, 'title' => t("Enabled Filters"), 'type' => 'ul', 'attributes' => array('class' => 'islandora-solr-filter-list filter-list')));
@@ -426,8 +406,12 @@ class IslandoraSolrResults {
 
         // create links
         // we're not using l() because of active classes: http://drupal.org/node/41595
-        $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($filter_split[1]) . '</a>'
+        $facetdisplay = ($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms') ? $this->getTitle($filter_split[1]) : $filter_split[1];
+        $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($facetdisplay) . '</a>'
               . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
+
+        //$breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($filter_split[1]) . '</a>'
+        //      . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
 
       }
 
@@ -587,6 +571,17 @@ class IslandoraSolrResults {
 
     $this->allSubsArray = array_merge($this->facetFieldArray, $this->searchFieldArray, $this->resultFieldArray);
   }
+
+  function getTitle($object_pid) {
+      $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
+      $query = 'select $title from <#ri>
+               where <' . $object_pid . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      foreach ($results as $result) {
+          return $result['title']['value'];
+      }
+  }
+
 }
 
 /**
@@ -858,7 +853,8 @@ class IslandoraSolrFacets {
       $facet_results[] = array(
         'count' => $count,
         'filter' => $facet_field . ':"' . $bucket . '"', // PID:"foo"
-        'bucket' => $bucket,
+        //'bucket' => $bucket,
+        'bucket' => ($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms') ? $this->getTitle($bucket) : $bucket,
       );
     }
     return $facet_results;
@@ -1396,4 +1392,15 @@ class IslandoraSolrFacets {
 
     return $response_array['response']['objects'][0]['solr_doc'][$field];
   }
+
+  function getTitle($object_pid) {
+      $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
+      $query = 'select $title from <#ri>
+               where <' . $object_pid . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      foreach ($results as $result) {
+          return $result['title']['value'];
+      }
+  }
+
 }

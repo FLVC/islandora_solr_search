@@ -165,17 +165,33 @@ function islandora_solr_block_view($block_name = '') {
  */
 function islandora_solr_simple_search_form($form, &$form_state) {
 
-  $collection_options = array(
-      '' => t('All Collections'),
-      'audio_collection' => t('Audio Collection'),
-      'sp_basic_image_collection' => t('Basic Image Collection'),
-      'bookCollection' => t('Book Collection'),
-      'sp_large_image_collection' => t('Large Image Collection'),
-      'sp_pdf_collection' => t('PDF Collection'),
-      'pdf_v7_collection' => t('PDF Version 7 Collection'),
-      'randys_collection' => t('Randy\'s Collection'),
-      'fau_collections' => t('All FAU Digital Collections'),
-  );
+  $collection_options = array('' => t('All Collections'));
+  $query_root = variable_get('islandora_repository_pid', 'islandora:root');
+  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
+  //if (!empty($collection_selected))
+  //{
+  //  $queryparent = $collection_selected;
+  //  $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+  //}
+
+  //module_load_include('inc', 'islandora', 'includes/utilities');
+  //$tuque = islandora_get_tuque_connection();
+
+  $fedora_object = islandora_object_load($query_root);
+  $query = 'select $subject $title from <#ri>
+           where $subject <fedora-model:label> $title
+           and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
+           and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_root . '>
+           and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+           order by $title';
+  //$results = $tuque->repository->ri->itqlQuery($query, 'unlimited');
+  $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+  foreach ($results as $result) {
+    //$collection_id = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']);
+    $collection_id = $result['subject']['value'];
+    $collection_title = $result['title']['value'];
+    $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+  }
 
   $form['simple'] = array(
     '#type' => 'container',
@@ -188,6 +204,7 @@ function islandora_solr_simple_search_form($form, &$form_state) {
     '#type' => 'select',
     '#default_value' => '',
     '#options' => $collection_options,
+    '#default_value' => $collection_selected,
   );
   $form['simple']["islandora_simple_search_query"] = array(
     '#size' => '15',
@@ -221,6 +238,7 @@ function islandora_solr_simple_search_form_submit($form, &$form_state) {
   if (isset($collection) && !empty($collection)) {
 //      $query['collection'] = $collection;
       $query = array_merge($query, array('collection' => $collection));
+//      $query = array_merge($query, array('f[0]' => $collection));
   }
 
   drupal_goto('islandora/search/' . $search_string, array('query' => $query));
