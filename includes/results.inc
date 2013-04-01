@@ -436,6 +436,53 @@ class IslandoraSolrResults {
             . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
     }
 
+    // create collection breadcrumb
+    if (!empty($params['collection'])) {
+
+      // remove all filters for this breadcrumb
+      $query = array();
+      $query = array_diff($params, array('f' => array()));
+
+      // remove button keeps all parameters (collection gets removed instead)
+      $query_x = array();
+      $query_x = $params;
+      unset($query_x['collection']);
+      if (empty($params['f'])) {
+        unset($query_x['f']);
+      }
+
+      $path_coll = $path;
+
+      // remove query from path
+      if (!in_array($islandoraSolrQuery->solrQuery, $islandoraSolrQuery->different_kinds_of_nothing))
+          $path_coll = implode('/', explode('/', $path, -1)) . '/ ';
+
+      $collection_title = $this->getTitle('info:fedora/' . $params['collection']);
+
+      // set attributes variable
+      $attr = array();
+      // set title
+      $attr['title'] = $collection_title;
+      // set rel
+      $attr['rel'] = 'nofollow';
+      // set url
+      $attr['href'] = url($path_coll, array('query' => $query));
+
+      // set attributes variable for remove link
+      $attr_x = array();
+      // set title
+      $attr_x['title'] = t('Remove') . ' ' . $collection_title;
+      // set rel
+      $attr_x['rel'] = 'nofollow';
+      // set url
+      $attr_x['href'] = url($path, array('query' => $query_x));
+
+      // create links
+      // we're not using l() because of active classes: http://drupal.org/node/41595
+      $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($collection_title) . '</a>'
+            . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
+    }
+
     $breadcrumb[] = l(t('Home'), '<front>', array('attributes' => array('title' => t('Home'))));
     if (!empty($breadcrumb)) {
       $breadcrumb = array_reverse($breadcrumb);
