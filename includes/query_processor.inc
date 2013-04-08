@@ -114,6 +114,9 @@ class IslandoraSolrQueryProcessor {
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
       $this->solrDefType = $this->internalSolrParams['type'];
       $this->solrParams['defType'] = $this->internalSolrParams['type'];
+
+      //$this->solrParams['fq'][] = 'RELS_EXT_isMemberOfCollection_uri_ms:*';
+      $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
     }
 
     // XXX: Fix the query as some characters will break the search : and / are
@@ -274,18 +277,25 @@ class IslandoraSolrQueryProcessor {
     {
 //      $this->solrParams['fq'][] = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $this->internalSolrParams['collection']);
       $collection = $this->internalSolrParams['collection'];
-      $collections_filter = 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ';
+//      $collections_filter = 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ';
+//      $collections_filter = 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ';
+      $collections_filter = '';
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
-      $query = 'select $subject from <#ri>
-               where  ($subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
-                    or $subject <fedora-model:hasModel> <info:fedora/islandora:bookCModel>)
+      $query = 'select $subject $content from <#ri>
+               where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>
+                    or $content <mulgara:is> <info:fedora/islandora:bookCModel>))
                and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
                and $subject <fedora-rels-ext:isMemberOfCollection> $object)
                and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
       $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
       foreach ($results as $result) {
-        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
+//        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
+          if ($result['content']['value'] == 'islandora:collectionCModel')
+              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
+          if ($result['content']['value'] == 'islandora:bookCModel')
+              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
       }
+      $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection);
       $this->solrParams['fq'][] = trim($collections_filter);
     }
 

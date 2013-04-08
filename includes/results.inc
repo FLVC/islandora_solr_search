@@ -366,7 +366,7 @@ class IslandoraSolrResults {
 
         // create links
         // we're not using l() because of active classes: http://drupal.org/node/41595
-        $facetdisplay = ($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms') ? $this->getTitle($filter_split[1]) : $filter_split[1];
+        $facetdisplay = (($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms')||($filter_split[0] == 'parent_book_id_ms')) ? $this->getTitle($filter_split[1]) : $filter_split[1];
         $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($facetdisplay) . '</a>'
               . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
 
@@ -898,7 +898,7 @@ class IslandoraSolrFacets {
         'count' => $count,
         'filter' => $facet_field . ':"' . $bucket . '"', // PID:"foo"
         //'bucket' => $bucket,
-        'bucket' => ($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms') ? $this->getTitle($bucket) : $bucket,
+        'bucket' => (($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms')||($facet_field == 'parent_book_id_ms')) ? $this->getTitle($bucket) : $bucket,
       );
     }
     return $facet_results;
