@@ -142,6 +142,10 @@ class IslandoraSolrQueryProcessor {
     $snippet_array = islandora_solr_get_snippet_fields();
     $snippets = implode(',', $snippet_array);
 
+    if (strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL) {
+        $snippets = '';
+    }
+
     // set params
     $params_array = array(
       'facet' => 'true',
@@ -397,10 +401,15 @@ class IslandoraSolrQueryProcessor {
           if (isset($highlighting[$pid][$field])) {
             $value = $highlighting[$pid][$field];
           }
+          else if ($field == 'OCR_t' || $field == 'FULL_TEXT_t' || $field == 'pdftext_t') {
+              // do not set full text fields for display when no highlighting
+              $value = '';
+          }
           else {
             $value = $doc[$field];
           }
-          $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
+          if (isset($value) && !empty($value))
+            $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
         }
       }
       // 2. if limit isn't set, add other fields
