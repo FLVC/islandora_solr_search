@@ -405,6 +405,9 @@ class IslandoraSolrQueryProcessor {
               // do not set full text fields for display when no highlighting
               $value = '';
           }
+          else if ($field == 'parent_book_id_ms') {
+              $value = $this->getTitle($doc[$field][0]);
+          }
           else {
             $value = $doc[$field];
           }
@@ -426,5 +429,15 @@ class IslandoraSolrQueryProcessor {
       $object_results[$object_index]['solr_doc'] = $rows;
     }
     return $object_results;
+  }
+
+  function getTitle($object_pid) {
+      $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
+      $query = 'select $title from <#ri>
+               where <' . $object_pid . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      foreach ($results as $result) {
+          return $result['title']['value'];
+      }
   }
 }
