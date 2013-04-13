@@ -232,7 +232,7 @@ function islandora_solr_simple_search_form_submit($form, &$form_state) {
   $search_string = str_replace('/', '~slsh~', $search_string); //replace the slash so url doesn't break
 
   // set query
-  $query = array('type' => 'dismax');
+  $query = array('type' => 'edismax');
 
   $collection = $form_state['values']['islandora_simple_collection'];
   if (isset($collection) && !empty($collection)) {
@@ -261,6 +261,26 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
 
   // include common.inc
   module_load_include('inc', 'islandora_solr', 'includes/common');
+
+  $collection_options = array('' => t('All Collections'));
+  $query_root = variable_get('islandora_repository_pid', 'islandora:root');
+  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
+
+  $fedora_object = islandora_object_load($query_root);
+  $query = 'select $subject $title from <#ri>
+           where $subject <fedora-model:label> $title
+           and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
+           and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_root . '>
+           and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+           order by $title';
+  $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+  foreach ($results as $result) {
+    //$collection_id = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']);
+    $collection_id = $result['subject']['value'];
+    $collection_title = $result['title']['value'];
+    $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+  }
+
 
   // check form states
   // 1. form update using ajax
@@ -430,6 +450,12 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
     '#prefix' => '<div class="islandora-solr-advanced-controls">',
     '#suffix' => '</div>',
   );
+  $form['islandora_advanced_collection'] = array(
+    '#type' => 'select',
+    '#default_value' => '',
+    '#options' => $collection_options,
+    '#default_value' => $collection_selected,
+  );
   $form['controls']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Search')
@@ -500,8 +526,14 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
     $query = '*:*';
   }
 
+  $params = array();
+  $collection = $form_state['values']['islandora_advanced_collection'];
+  if (isset($collection) && !empty($collection)) {
+      $params = array_merge($params, array('collection' => $collection));
+  }
+
   // navigate to results page
-  drupal_goto('islandora/search/' . $query);
+  drupal_goto('islandora/search/' . $query, array('query' => $params));
 }
 
 
