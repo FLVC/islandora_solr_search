@@ -177,7 +177,11 @@ class IslandoraSolrQueryProcessor {
     $facet_array = islandora_solr_get_fields('facet_fields');
     $facet_fields = implode(",", array_keys($facet_array));
 
-    // Set params.
+    if (strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL) {
+        $snippets = '';
+    }
+
+    // set params
     $params_array = array(
       'facet' => 'true',
       'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
@@ -458,7 +462,19 @@ class IslandoraSolrQueryProcessor {
       // 1: Add defined fields.
       foreach ($fields_filtered as $field => $label) {
         if (isset($doc[$field]) && !empty($doc[$field])) {
-          $rows[$field] = $doc[$field];
+          // Check highlighting.
+          if (isset($highlighting[$pid][$field])) {
+            $value = $highlighting[$pid][$field];
+          }
+          else if ($field == 'OCR_t' || $field == 'FULL_TEXT_t' || $field == 'pdftext_t') {
+              // do not set full text fields for display when no highlighting
+              $value = '';
+          }
+          else {
+            $value = $doc[$field];
+          }
+          if (isset($value) && !empty($value))
+            $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
         }
       }
       // 2: If limit is not set, add other fields.
