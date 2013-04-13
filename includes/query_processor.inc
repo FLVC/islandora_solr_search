@@ -151,6 +151,7 @@ class IslandoraSolrQueryProcessor {
       'hl' => isset($snippets) ? 'true' : NULL,
       'hl.fl' => isset($snippets) ? $snippets : NULL,
       'hl.fragsize' => 400,
+      'hl.maxAnalyzedChars' => 2000000,
       'hl.simple.pre' => '<span class="islandora-solr-highlight">',
       'hl.simple.post' => '</span>',
         // Comma separated list configured in the block config.
