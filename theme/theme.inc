@@ -67,7 +67,7 @@ function islandora_solr_preprocess_islandora_solr_facet(&$variables) {
  */
 function theme_islandora_solr_facet_wrapper($variables) {
   $output = '<div class="islandora-solr-facet-wrapper">';
-  $output .= '<h3>' . $variables['title'] . '</h3>';
+  $output .= '<h4>' . $variables['title'] . '</h4>';
   $output .= $variables['content'];
   $output .= '</div>';
   return $output;

@@ -142,7 +142,7 @@ class IslandoraSolrQueryProcessor {
     $snippet_array = islandora_solr_get_snippet_fields();
     $snippets = implode(',', $snippet_array);
 
-    if (strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL) {
+    if ((strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL)&&(strstr($this->solrQuery, "catch_all_foxml_text_mt") == NULL)) {
         $snippets = '';
     }
 
