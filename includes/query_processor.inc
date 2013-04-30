@@ -177,7 +177,7 @@ class IslandoraSolrQueryProcessor {
     $facet_array = islandora_solr_get_fields('facet_fields');
     $facet_fields = implode(",", array_keys($facet_array));
 
-    if (strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL) {
+    if ((strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL)&&(strstr($this->solrQuery, "catch_all_foxml_text_mt") == NULL)) {
         $snippets = '';
     }
 
