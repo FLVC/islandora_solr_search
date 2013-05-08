@@ -34,7 +34,7 @@ function islandora_solr_get_fields($field_type = NULL, $filter = TRUE, $simplifi
   }
   catch (Exception $e) {
     if ($e->errorInfo[0] == '42S02') {
-      drupal_set_message(t('Islandora solr fields table not found. Try running <a href="@update_url">update.php</a>.', array('@update_url' => $base_path . 'update.php')), 'error');
+      drupal_set_message(t('Islandora Solr fields table not found. Try running <a href="@update_url">update.php</a>.', array('@update_url' => url('update.php'))), 'error');
     }
     else {
       drupal_set_message($e->getMessage(), 'error');
@@ -42,23 +42,29 @@ function islandora_solr_get_fields($field_type = NULL, $filter = TRUE, $simplifi
     $records = array();
   }
   // unserialize solr field settings blob
-  foreach ($records as $key => $value) {
-    $records[$key]['solr_field_settings'] = unserialize($records[$key]['solr_field_settings']);
+  foreach ($records as &$value) {
+    $value['solr_field_settings'] = unserialize($value['solr_field_settings']);
   }
   // filter
   if ($filter == TRUE) {
     $records = _islandora_solr_filter_fields($records);
   }
+
+  if (module_exists('i18n_string')) {
+    islandora_solr_translate_field_labels($records);
+  }
+
   // simplify
   if ($simplified == TRUE) {
     $records = _islandora_solr_simplify_fields($records);
   }
-  // fields as keys  
+  // fields as keys
   if ($keys == TRUE && $simplified == FALSE) {
-    foreach ($records as $key => $value) {
+    $original = $records;
+    $records = array();
+    foreach ($original as $value) {
       $records[$value['solr_field']] = $value;
-      unset($records[$key]);
-    }    
+    }
   }
   return $records;
 }
@@ -139,6 +145,34 @@ function islandora_solr_get_snippet_fields() {
 }
 
 /**
+ * Return display fields with 'link to object' enabled.
+ */
+function islandora_solr_get_link_to_object_fields() {
+  $records = islandora_solr_get_fields('result_fields', TRUE, FALSE);
+  $link_to_object_fields = array();
+  foreach ($records as $key => $value) {
+    if (isset($value['solr_field_settings']['link_to_object']) && $value['solr_field_settings']['link_to_object'] == 1) {
+      $link_to_object_fields[] = $value['solr_field'];
+    }
+  }
+  return $link_to_object_fields;
+}
+
+/**
+ * Return display fields with 'date format' enabled.
+ */
+function islandora_solr_get_date_format_fields() {
+  $records = islandora_solr_get_fields('result_fields', TRUE, FALSE);
+  $date_format = array();
+  foreach ($records as $key => $value) {
+    if (isset($value['solr_field_settings']['date_format']) && !empty($value['solr_field_settings']['date_format'])) {
+      $date_format[$value['solr_field']] = $value['solr_field_settings']['date_format'];
+    }
+  }
+  return $date_format;
+}
+
+/**
  * Return facet fields with range enabled.
  */
 function islandora_solr_get_range_facets() {
@@ -150,4 +184,20 @@ function islandora_solr_get_range_facets() {
     }
   }
   return $range_facets;
+}
+
+/**
+ * Function used with optional i18n_string integration.
+ */
+function islandora_solr_translate_field_labels(array &$records) {
+  foreach ($records as &$record) {
+    $settings = &$record['solr_field_settings'];
+    if (isset($settings['label'])) {
+      $string_id = format_string("islandora_solr:field_settings:@type:label:@field", array(
+        '@type' => $record['field_type'],
+        '@field' => $record['solr_field'],
+      ));
+      $settings['label'] = i18n_string_translate($string_id, $settings['label']);
+    }
+  }
 }

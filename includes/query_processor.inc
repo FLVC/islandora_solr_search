@@ -95,6 +95,7 @@ class IslandoraSolrQueryProcessor {
       $this->solrQuery = ' '; //so we can allow empty queries to dismax
       // set base query
       $this->internalSolrQuery = variable_get('islandora_solr_base_query', 'timestamp:[* TO NOW]');
+
       // we must also undo dismax if it's been set
       $this->solrDefType = NULL;
       $this->solrParams['defType'] = NULL;
@@ -110,6 +111,13 @@ class IslandoraSolrQueryProcessor {
       else {
         // use ascending
         $this->solrParams['sort'] = $sort_explode[0] . ' asc';
+      }
+    }
+    else {
+      $base_sort = variable_get('islandora_solr_base_sort', '');
+      $base_sort = trim($base_sort);
+      if (!empty($base_sort)) {
+        $this->solrParams['sort'] = $base_sort;
       }
     }
 
@@ -134,24 +142,19 @@ class IslandoraSolrQueryProcessor {
     // set variables
     $facet_array = islandora_solr_get_fields('facet_fields');
     $facet_fields = implode(",", array_keys($facet_array));
-    $keys = array();
-    $snippet_array = islandora_solr_get_snippet_fields();
-    $snippets = implode(',', $snippet_array);
 
     // set params
     $params_array = array(
       'facet' => 'true',
       'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
       'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
-      'qt' => variable_get('islandora_solr_request_handler', ''),
-      'hl' => isset($snippets) ? 'true' : NULL,
-      'hl.fl' => isset($snippets) ? $snippets : NULL,
-      'hl.fragsize' => 400,
-      'hl.simple.pre' => '<span class="islandora-solr-highlight">',
-      'hl.simple.post' => '</span>',
-      // Comma separated list configured in the block config.
       'facet.field' => explode(',', $facet_fields),
     );
+
+    $request_handler = variable_get('islandora_solr_request_handler', FALSE);
+    if ($request_handler) {
+      $params_array['qt'] = $request_handler;
+    }
 
     // check for date facets
     $facet_dates = islandora_solr_get_range_facets();
@@ -175,6 +178,10 @@ class IslandoraSolrQueryProcessor {
         if ($gap) {
           $params_date_facets["f.{$field}.facet.date.gap"] = $gap;
         }
+        // When the range slider is enabled we always want to return empty values.
+        if ($value['solr_field_settings']['range_facet_slider_enabled'] == 1) {
+          $params_date_facets["f.{$field}.facet.mincount"] = 0;
+        }
         // remove range/date field from facet.field array
         $pos = array_search($field, $params_array['facet.field']);
         unset($params_array['facet.field'][$pos]);
@@ -185,6 +192,20 @@ class IslandoraSolrQueryProcessor {
       $params_date_facets["facet.date.gap"] = '+1YEAR';
 
       $params_array = array_merge($params_array, $params_date_facets);
+    }
+
+    // Highlighting.
+    $highlighting_array = islandora_solr_get_snippet_fields();
+    if (!empty($highlighting_array)) {
+      $highlights = implode(',', $highlighting_array);
+      $highlighting_params = array(
+        'hl' => isset($highlights) ? 'true' : NULL,
+        'hl.fl' => isset($highlights) ? $highlights : NULL,
+        'hl.fragsize' => 400,
+        'hl.simple.pre' => '<span class="islandora-solr-highlight">',
+        'hl.simple.post' => '</span>',
+      );
+      $params_array += $highlighting_params;
     }
 
     // add parameters
@@ -200,9 +221,6 @@ class IslandoraSolrQueryProcessor {
     // Set filter parameters - both from url and admin settings.
     if (isset($this->internalSolrParams['f']) && is_array($this->internalSolrParams['f'])) {
       $this->solrParams['fq'] = $this->internalSolrParams['f'];
-      if (!empty($base_filters)) {
-        $this->solrParams['fq'] = array_merge($this->internalSolrParams['f'], $base_filters);
-      }
       if (!empty($base_filters)) {
         $this->solrParams['fq'] = array_merge($this->internalSolrParams['f'], $base_filters);
       }
@@ -326,7 +344,7 @@ class IslandoraSolrQueryProcessor {
           // Hook to alter everything.
           drupal_alter('islandora_solr_results', $object_results, $this);
           // Additional Solr doc preparation. Includes field permissions and limitations.
-          $object_results = $this->prepareSolrDoc($object_results, $solr_results['highlighting']);
+          $object_results = $this->prepareSolrDoc($object_results);
         }
       }
       // Save results tailored for Islandora's use.
@@ -341,17 +359,15 @@ class IslandoraSolrQueryProcessor {
   }
 
   /**
-   * Iterates of the Solr doc of every result object and applies filters,
-   * sort orders and highlighting.
+   * Iterates of the Solr doc of every result object and applies filters
+   * sort orders.
    *
    * @param array $object_results
    *   An array containing the prepared object results.
-   * @param array $highlighting
-   *   Contains the highlighting array from the Solr results.
    * @return array
    *   The object results array with updated solr doc values.
    */
-  function prepareSolrDoc($object_results, $highlighting = array()) {
+  function prepareSolrDoc($object_results) {
     // optionally limit results to values given
     $limit_results = variable_get('islandora_solr_limit_result_fields', 0);
     // look for fields with no permission
@@ -362,19 +378,11 @@ class IslandoraSolrQueryProcessor {
     // Loop over object results.
     foreach ($object_results as $object_index => $object_result) {
       $doc = $object_result['solr_doc'];
-      $pid = $object_result['PID'];
       $rows = array();
       // 1. add defined fields
       foreach ($fields_filtered as $field => $label) {
         if (isset($doc[$field]) && !empty($doc[$field])) {
-          // Check highlighting.
-          if (isset($highlighting[$pid][$field])) {
-            $value = $highlighting[$pid][$field];
-          }
-          else {
-            $value = $doc[$field];
-          }
-          $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
+          $rows[$field] = $doc[$field];
         }
       }
       // 2. if limit isn't set, add other fields
@@ -384,7 +392,7 @@ class IslandoraSolrQueryProcessor {
           if (isset($rows[$field]) || in_array($field, $fields_no_permission)) {
             continue;
           }
-          $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
+          $rows[$field] = $doc[$field];
         }
       }
       // Replace Solr doc rows.

@@ -36,7 +36,7 @@ function islandora_solr_forms($form_id, $args) {
 function islandora_solr_date_filter_form($form, &$form_state, $elements) {
   global $_islandora_solr_queryclass;
   extract($elements);
-  
+
   $form = array(
     '#tree' => TRUE,
     '#prefix' => '<div class="islandora-solr-date-filter">',
@@ -82,7 +82,7 @@ function islandora_solr_date_filter_form($form, &$form_state, $elements) {
             $from_default = NULL;
           }
           if ($to_unix !== FALSE) {
-            $to_default = (strpos($filter_array[1], '*') !== FALSE) ? '*' : format_date($to_unix, 'custom', $format, 'UTC');            
+            $to_default = (strpos($filter_array[1], '*') !== FALSE) ? '*' : format_date($to_unix, 'custom', $format, 'UTC');
           }
           else {
             $to_default = NULL;
@@ -151,7 +151,7 @@ function islandora_solr_date_filter_form($form, &$form_state, $elements) {
   $form['#submit'][] = 'islandora_solr_date_filter_form_submit';
   // Validate
   $form['#validate'][] = 'islandora_solr_date_filter_form_validate';
-    
+
   // include datepicker js
   drupal_add_library('system', 'ui.datepicker');
   // add datepicker css
@@ -189,7 +189,7 @@ function islandora_solr_date_filter_form_validate($form, &$form_state) {
 
     // check from date
     if (!checkdate(intval($from[1]), intval($from[2]), intval($from[0]))) {
-      form_set_error($form_key . '][date_filter_from', t('From date isn\'t formatted correctly.'));
+      form_set_error($form_key . '][date_filter_from', t('<em>From</em> date isn\'t formatted correctly.'));
     }
   }
   // if the 'to' value is '*' just skip all checks
@@ -203,7 +203,7 @@ function islandora_solr_date_filter_form_validate($form, &$form_state) {
     }
     // check to date
     if (!checkdate(intval($to[1]), intval($to[2]), intval($to[0]))) {
-      form_set_error($form_key . '][date_filter_to', t('To date isn\'t formatted correctly.'));
+      form_set_error($form_key . '][date_filter_to', t('<em>To</em> date isn\'t formatted correctly.'));
     }
   }
 }
@@ -308,7 +308,7 @@ function islandora_solr_range_slider_form($form, &$form_state, $elements) {
     'gap' => $gap,
     'range_from' => format_date(strtotime(trim($from_default['date'])) + 1, 'custom', $date_format, 'UTC'),
     'range_to' => format_date(strtotime(trim($to_default['date'])), 'custom', $date_format, 'UTC'),
-  );  
+  );
   $form['markup'] = array(
     '#markup' => theme('islandora_solr_range_slider', $slider_variables),
   );
@@ -338,7 +338,7 @@ function islandora_solr_range_slider_form($form, &$form_state, $elements) {
   // include flot
   // @TODO: use the libraries module for this!
   // @TODO: use the new version of flot. Didn't work out of the box, so needs some extra attention.
-  drupal_add_js(drupal_get_path('module', 'islandora_solr') . '/js/flot/jquery.flot.min.js');  
+  drupal_add_js(drupal_get_path('module', 'islandora_solr') . '/js/flot/jquery.flot.min.js');
   // @TODO: find a good way to call this for IE8 and lower
   // <!--[if lte IE 8]><![endif]-->
 //  drupal_add_js(drupal_get_path('module', 'islandora_solr') . '/js/flot/excanvas.min.js');
