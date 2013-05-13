@@ -172,6 +172,16 @@ class IslandoraSolrResults {
     $elements['solr_total'] = $solr_results['response']['numFound'];
     $elements['solr_start'] = $solr_results['response']['start'];
 
+    // solr suggest
+    $suggest_terms = '';
+    foreach ($this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck']['suggestions'] as $term => $value) {
+        $suggest_terms = $suggest_terms . $this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck']['suggestions'][$term]['suggestion'][0] . ' ';
+    }
+    $suggest_terms = trim($suggest_terms);
+    if (!empty($suggest_terms)) {
+        $elements['solr_suggest'] = $suggest_terms;
+    }
+
     // Return themed search results.
     return theme('islandora_solr', array('results' => $object_results, 'elements' => $elements));
   }
