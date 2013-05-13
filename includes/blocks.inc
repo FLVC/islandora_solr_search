@@ -622,6 +622,22 @@ function islandora_solr_display() {
           $list_items[] = $item;
         }
       }
+
+      $collection = isset($_GET['collection']) ? $_GET['collection'] : '';
+      if (!empty($collection)) {
+          // don't display default view if there are no other views
+          if (count($list_items) == 1) {
+              unset($list_items[0]);
+          }
+          $list_items[] = '';
+          $attr = array();
+          $attr['rel'] = 'nofollow';
+          $attr['title'] = 'Go to collection view';
+          $attr['href'] = url('islandora/object/' . $collection);
+          $item = '<a' . drupal_attributes($attr) . '>' . check_plain('Collection home') . '</a>';
+          $list_items[] = $item;
+      }
+
       // theme item list (if more than one displays are available)
       if (count($list_items) > 1) {
         $output = theme('item_list', array('items' => $list_items, 'title' => NULL, 'type' => 'ul', 'attributes' => array('class' => 'islandora-solr-display')));
