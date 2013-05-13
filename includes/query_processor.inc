@@ -154,10 +154,12 @@ class IslandoraSolrQueryProcessor {
       'qt' => variable_get('islandora_solr_request_handler', ''),
       'hl' => isset($snippets) ? 'true' : NULL,
       'hl.fl' => isset($snippets) ? $snippets : NULL,
+      'hl.snippets' => 1000,
       'hl.fragsize' => 400,
       'hl.maxAnalyzedChars' => 2000000,
       'hl.simple.pre' => '<span class="islandora-solr-highlight">',
       'hl.simple.post' => '</span>',
+      //'spellcheck' => 'true',
         // Comma separated list configured in the block config.
       'facet.field' => explode(',', $facet_fields),
     );
@@ -232,9 +234,9 @@ class IslandoraSolrQueryProcessor {
       foreach ($results as $result) {
 //        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
           if ($result['content']['value'] == 'islandora:collectionCModel')
-              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
+              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
           if ($result['content']['value'] == 'islandora:bookCModel')
-              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
+              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
       }
       $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection);
       $this->solrParams['fq'][] = trim($collections_filter);
@@ -399,8 +401,20 @@ class IslandoraSolrQueryProcessor {
         if (isset($doc[$field]) && !empty($doc[$field])) {
           // Check highlighting.
           if (isset($highlighting[$pid][$field])) {
-            $value = $highlighting[$pid][$field];
-          }
+            $value = $highlighting[$pid][$field][0];
+            $hcount = 0;
+            $adjcount = 0;
+            foreach ($highlighting[$pid][$field] as $snippet) {
+                $hcount += substr_count($snippet, 'islandora-solr-highlight');
+                $adjcount += substr_count($snippet, '</span> <span class="islandora-solr-highlight">');
+            }
+            if (strstr($this->solrQuery,':("') == NULL) {
+                $adjcount = 0;
+            }
+            $rows['highlight_count'] = $hcount - $adjcount;
+            //$rows['highlight_count'] = count($highlighting[$pid][$field]);
+            //$rows['highlight_count'] = substr_count($doc[$field][0],$this->solrQuery);
+	  }
           else if ($field == 'OCR_t' || $field == 'FULL_TEXT_t' || $field == 'pdftext_t') {
               // do not set full text fields for display when no highlighting
               $value = '';

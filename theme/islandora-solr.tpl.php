@@ -13,6 +13,11 @@
 
 <?php if (empty($results)): ?>
   <p class="no-results"><?php print t('Sorry, but your search returned no results.'); ?></p>
+  <?php if (isset($elements['solr_suggest'])): ?>
+    <p class="no-results"><?php print t('Try searching '); ?>
+    <?php $suggestquerystr = array('type' => 'edismax'); ?>
+    <?php print l($elements['solr_suggest'], "islandora/search/{$elements['solr_suggest']}", array('query' => $suggestquerystr)); ?></p>
+  <?php endif; ?>
   <?php else: ?>
   <div class="islandora islandora-solr-search-results">
     <?php
