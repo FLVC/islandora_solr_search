@@ -194,7 +194,7 @@ class IslandoraSolrQueryProcessor {
       'hl.maxAnalyzedChars' => 2000000,
       'hl.simple.pre' => '<span class="islandora-solr-highlight">',
       'hl.simple.post' => '</span>',
-      //'spellcheck' => 'true',
+      'spellcheck' => 'true',
         // Comma separated list configured in the block config.
       'facet.field' => explode(',', $facet_fields),
     );
