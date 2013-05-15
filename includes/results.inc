@@ -155,10 +155,12 @@ class IslandoraSolrResults {
 
     // solr suggest
     $suggest_terms = '';
-    foreach ($this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck']['suggestions'] as $term => $value) {
-        $suggest_terms = $suggest_terms . $this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck']['suggestions'][$term]['suggestion'][0] . ' ';
+    if (isset($this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck'])) {
+        foreach ($this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck']['suggestions'] as $term => $value) {
+            $suggest_terms = $suggest_terms . $this->islandoraSolrQueryProcessor->islandoraSolrResult['spellcheck']['suggestions'][$term]['suggestion'][0] . ' ';
+        }
+        $suggest_terms = trim($suggest_terms);
     }
-    $suggest_terms = trim($suggest_terms);
     if (!empty($suggest_terms)) {
         $elements['solr_suggest'] = $suggest_terms;
     }
