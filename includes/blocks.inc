@@ -165,32 +165,98 @@ function islandora_solr_block_view($block_name = '') {
  */
 function islandora_solr_simple_search_form($form, &$form_state) {
 
-  $collection_options = array('' => t('All Collections'));
+  //$collection_options = array('' => t('All Collections'));
+  $collection_options = array();
   $query_root = variable_get('islandora_repository_pid', 'islandora:root');
-  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
-  //if (!empty($collection_selected))
-  //{
-  //  $queryparent = $collection_selected;
-  //  $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
-  //}
-
-  //module_load_include('inc', 'islandora', 'includes/utilities');
-  //$tuque = islandora_get_tuque_connection();
-
   $fedora_object = islandora_object_load($query_root);
-  $query = 'select $subject $title from <#ri>
-           where $subject <fedora-model:label> $title
-           and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
-           and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_root . '>
-           and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
-           order by $title';
-  //$results = $tuque->repository->ri->itqlQuery($query, 'unlimited');
-  $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
-  foreach ($results as $result) {
-    //$collection_id = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']);
-    $collection_id = $result['subject']['value'];
-    $collection_title = $result['title']['value'];
-    $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+
+  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
+  if (!empty($collection_selected)) {
+      $query_pid = $collection_selected;
+      //$collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+      $titlequery = 'select $title from <#ri>
+                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      foreach ($results as $result) {
+          $collection_title =  $result['title']['value'];
+      }
+      $collection_options = array_merge($collection_options, array($collection_selected => $collection_title));
+  }
+  else if (strpos($_SERVER['REQUEST_URI'],'islandora/object/')) {
+      $view_pid = urldecode(substr($_SERVER['REQUEST_URI'],18));
+      if ($view_pid == $query_root) {
+          $query_pid = $query_root;
+      }
+      else {
+          $query_pid = $view_pid;
+          //$titlequery = 'select $title from <#ri>
+          //               where <info:fedora/' . $query_pid . '> <fedora-model:label> $title';
+          //$results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+          //foreach ($results as $result) {
+          //    $collection_title =  $result['title']['value'];
+          //}
+          $contentquery = 'select $title $content from <#ri>
+                    where <info:fedora/' . $query_pid . '> <fedora-model:label> $title 
+                    and <info:fedora/' . $query_pid . '> <fedora-model:hasModel> $content
+                    minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>';
+          $results = $fedora_object->repository->ri->itqlQuery($contentquery, 'unlimited');
+          $object_content_type = '';
+          $object_title = '';
+          if (count($results) > 0) {
+              $object_title = $results[0]['title']['value'];
+              $object_content_type = $results[0]['content']['value'];
+          }
+
+          if (strpos($object_content_type, 'collectionCModel'))
+          {
+            $collection_options = array_merge($collection_options, array($query_pid => $object_title));
+            $collection_selected = $query_pid;
+          }
+          else
+          {
+            $query_string = 'select $parentObject $title $content from <#ri>
+                        where (
+                        $parentObject <fedora-model:label> $title
+                        and $parentObject <fedora-model:hasModel> $content
+                        and (
+                          <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOfCollection> $parentObject
+                          or <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject
+                          or <info:fedora/' . $query_pid . '> <fedora-rels-ext:isPartOf> $parentObject
+                        )
+                        and $parentObject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+                      )
+                      minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>
+                      minus $parentObject <mulgara:is> <info:fedora/' . $query_pid . '>
+                      order by $title desc';
+            $results = $fedora_object->repository->ri->itqlQuery($query_string, 'unlimited');
+            foreach ($results as $result) {
+                $collection_options = array_merge($collection_options, array($result['parentObject']['value'] => $result['title']['value']));
+            }
+            if (count($results) > 0) {
+                $collection_selected = $results[0]['parentObject']['value'];
+            }
+          }
+      }
+  }
+  else {
+      $query_pid = $query_root;
+  }
+
+  $collection_options = array_merge($collection_options, array('' => t('All Collections')));
+
+  if (!empty($query_pid)) {
+      $query = 'select $subject $title from <#ri>
+               where $subject <fedora-model:label> $title
+               and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
+               and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_pid . '>
+               and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+               order by $title';
+      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      foreach ($results as $result) {
+        $collection_id = $result['subject']['value'];
+        $collection_title = $result['title']['value'];
+        $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+      }
   }
 
   $form['simple'] = array(
@@ -632,7 +698,7 @@ function islandora_solr_display() {
           $list_items[] = '';
           $attr = array();
           $attr['rel'] = 'nofollow';
-          $attr['title'] = 'Go to collection view';
+          $attr['title'] = 'Go to collection home';
           $attr['href'] = url('islandora/object/' . $collection);
           $item = '<a' . drupal_attributes($attr) . '>' . check_plain('Collection home') . '</a>';
           $list_items[] = $item;
