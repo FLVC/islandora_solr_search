@@ -30,7 +30,8 @@ function islandora_solr_islandora_solr_query_blocks() {
       'form' => 'islandora_solr_simple_search_form',
     ),
     'basic_facets' => array(
-      'name' => t('Islandora facets'),
+      //'name' => t('Islandora facets'),
+      'name' => t('Narrow results by:'),
       'module' => 'islandora_solr',
       'file' => 'includes/results.inc',
       'class' => 'IslandoraSolrResults',
@@ -200,7 +201,6 @@ function islandora_solr_simple_search_form($form, &$form_state) {
                         and (
                           <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOfCollection> $parentObject
                           or <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject
-                          or <info:fedora/' . $query_pid . '> <fedora-rels-ext:isPartOf> $parentObject
                         )
                         and $parentObject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
                       )

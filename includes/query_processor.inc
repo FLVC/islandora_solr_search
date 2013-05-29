@@ -487,6 +487,9 @@ class IslandoraSolrQueryProcessor {
           else if ($field == 'parent_book_id_ms') {
               $value = $this->getTitle($doc[$field][0]);
           }
+          else if ($field == 'RELS_EXT_hasModel_uri_ms') {
+              $value = $this->getFormat($doc[$field][0]);
+          }
           else {
             $value = $doc[$field];
           }
@@ -518,5 +521,26 @@ class IslandoraSolrQueryProcessor {
       foreach ($results as $result) {
           return $result['title']['value'];
       }
+  }
+
+  function getFormat($hasModel) {
+    $format_array = array(
+      'info:fedora/islandora:bookCModel' => 'E-book',
+      'info:fedora/islandora:compoundCModel' => 'Set of related objects',
+      'info:fedora/islandora:newspaperCModel' => 'Newspaper',
+      'info:fedora/islandora:newspaperPageCModel' => 'Newspaper',
+      'info:fedora/islandora:pageCModel' => 'E-book',
+      'info:fedora/islandora:sp-audioCModel' => 'Audio file',
+      'info:fedora/islandora:sp_basic_image' => 'Image (JPEG)',
+      'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
+      'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
+      'info:fedora/islandora:sp_videoCModel' => 'Video file',
+    );
+
+    if (isset($format_array[$hasModel])) {
+        return $format_array[$hasModel];
+    }
+
+    return 'unknown';
   }
 }

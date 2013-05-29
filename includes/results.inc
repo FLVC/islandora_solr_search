@@ -378,7 +378,13 @@ class IslandoraSolrResults {
 
         // create links
         // we're not using l() because of active classes: http://drupal.org/node/41595
-        $facetdisplay = (($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms')||($filter_split[0] == 'parent_book_id_ms')) ? $this->getTitle($filter_split[1]) : $filter_split[1];
+        $facetdisplay = $filter_split[1];
+        if (($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms')||($filter_split[0] == 'parent_book_id_ms')) {
+            $facetdisplay = $this->getTitle($filter_split[1]);
+        }
+        if ($filter_split[0] == 'RELS_EXT_hasModel_uri_ms') {
+            $facetdisplay = $this->getFormat($filter_split[1]);
+        }
         $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($facetdisplay) . '</a>'
               . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
 
@@ -652,6 +658,27 @@ class IslandoraSolrResults {
       }
   }
 
+  function getFormat($hasModel) {
+    $format_array = array(
+      'info:fedora/islandora:bookCModel' => 'E-book',
+      'info:fedora/islandora:compoundCModel' => 'Set of related objects',
+      'info:fedora/islandora:newspaperCModel' => 'Newspaper',
+      'info:fedora/islandora:newspaperPageCModel' => 'Newspaper',
+      'info:fedora/islandora:pageCModel' => 'E-book',
+      'info:fedora/islandora:sp-audioCModel' => 'Audio file',
+      'info:fedora/islandora:sp_basic_image' => 'Image (JPEG)',
+      'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
+      'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
+      'info:fedora/islandora:sp_videoCModel' => 'Video file',
+    );
+
+    if (isset($format_array[$hasModel])) {
+        return $format_array[$hasModel];
+    }
+
+    return 'unknown';
+  }
+
 }
 
 /**
@@ -906,11 +933,18 @@ class IslandoraSolrFacets {
     $facet_field = $this->facet_field;
     $facet_results = array();
     foreach ($results as $bucket => $count) {
+      $bucket_value = $bucket;
+      if (($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms')||($facet_field == 'parent_book_id_ms')) {
+          $bucket_value = $this->getTitle($bucket);
+      }
+      if ($facet_field == 'RELS_EXT_hasModel_uri_ms') {
+          $bucket_value = $this->getFormat($bucket);
+      }
       $facet_results[] = array(
         'count' => $count,
         'filter' => $facet_field . ':"' . $bucket . '"', // PID:"foo"
+        'bucket' => $bucket_value,
         //'bucket' => $bucket,
-        'bucket' => (($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms')||($facet_field == 'parent_book_id_ms')) ? $this->getTitle($bucket) : $bucket,
       );
     }
     return $facet_results;
@@ -1473,6 +1507,27 @@ class IslandoraSolrFacets {
       foreach ($results as $result) {
           return $result['title']['value'];
       }
+  }
+
+  function getFormat($hasModel) {
+    $format_array = array(
+      'info:fedora/islandora:bookCModel' => 'E-book',
+      'info:fedora/islandora:compoundCModel' => 'Set of related objects',
+      'info:fedora/islandora:newspaperCModel' => 'Newspaper',
+      'info:fedora/islandora:newspaperPageCModel' => 'Newspaper',
+      'info:fedora/islandora:pageCModel' => 'E-book',
+      'info:fedora/islandora:sp-audioCModel' => 'Audio file',
+      'info:fedora/islandora:sp_basic_image' => 'Image (JPEG)',
+      'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
+      'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
+      'info:fedora/islandora:sp_videoCModel' => 'Video file',
+    );
+
+    if (isset($format_array[$hasModel])) {
+        return $format_array[$hasModel];
+    }
+
+    return 'unknown';
   }
 
 }
