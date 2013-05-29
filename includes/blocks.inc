@@ -176,7 +176,7 @@ function islandora_solr_simple_search_form($form, &$form_state) {
           //    $collection_title =  $result['title']['value'];
           //}
           $contentquery = 'select $title $content from <#ri>
-                    where <info:fedora/' . $query_pid . '> <fedora-model:label> $title 
+                    where <info:fedora/' . $query_pid . '> <fedora-model:label> $title
                     and <info:fedora/' . $query_pid . '> <fedora-model:hasModel> $content
                     minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>';
           $results = $fedora_object->repository->ri->itqlQuery($contentquery, 'unlimited');
@@ -245,22 +245,25 @@ function islandora_solr_simple_search_form($form, &$form_state) {
         'container-inline')
       )
     );
+
+  $form['simple']['islandora_simple_search_query'] = array(
+    '#size' => '15',
+    '#type' => 'textfield',
+    '#title' => '',
+    '#default_value' => '', // @TODO: should this be the searched value?
+  );
+
   $form['simple']['islandora_simple_collection'] = array(
     '#type' => 'select',
+    '#title' => 'in',
     '#default_value' => '',
     '#options' => $collection_options,
     '#default_value' => $collection_selected,
   );
-  $form['simple']["islandora_simple_search_query"] = array(
-    '#size' => '15',
-    '#type' => 'textfield',
-    '#title' => '',
-    // @todo Should this be the searched value?
-    '#default_value' => '',
-  );
+
   $form['simple']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('search'),
+    '#value' => t('Go')
   );
   return $form;
 }
