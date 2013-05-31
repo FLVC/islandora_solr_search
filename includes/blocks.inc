@@ -181,6 +181,8 @@ function islandora_solr_simple_search_form($form, &$form_state) {
           //foreach ($results as $result) {
           //    $collection_title =  $result['title']['value'];
           //}
+
+          // query for current object label and hasModel
           $contentquery = 'select $title $content from <#ri>
                     where <info:fedora/' . $query_pid . '> <fedora-model:label> $title
                     and <info:fedora/' . $query_pid . '> <fedora-model:hasModel> $content
@@ -200,13 +202,33 @@ function islandora_solr_simple_search_form($form, &$form_state) {
           }
           else
           {
+            // at a non-collection object
+
+            // special processing if at a book page object
+            if (strpos($object_content_type, 'pageCModel'))
+            {
+                $query_book = 'select $parentObject $content from <#ri>
+                        where (
+                        $parentObject <fedora-model:hasModel> $content
+                        and <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject
+                        and $parentObject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+                      )
+                      minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>
+                      minus $parentObject <mulgara:is> <info:fedora/' . $query_pid . '>
+                      order by $title desc';
+                $results = $fedora_object->repository->ri->itqlQuery($query_book, 'unlimited');
+                if (count($results) > 0) {
+                    $query_pid = $results[0]['parentObject']['value'];
+                }
+            }
+
+            // get the immediate parent collections
             $query_string = 'select $parentObject $title $content from <#ri>
                         where (
                         $parentObject <fedora-model:label> $title
                         and $parentObject <fedora-model:hasModel> $content
                         and (
                           <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOfCollection> $parentObject
-                          or <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject
                         )
                         and $parentObject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
                       )
