@@ -163,7 +163,13 @@ function islandora_solr_simple_search_form($form, &$form_state) {
       $collection_options = array_merge($collection_options, array($collection_selected => $collection_title));
   }
   else if (strpos($_SERVER['REQUEST_URI'],'islandora/object/')) {
-      $view_pid = urldecode(substr($_SERVER['REQUEST_URI'],18));
+      $endpos = strpos($_SERVER['REQUEST_URI'], '/', 18);
+      if ($endpos) {
+          $view_pid = urldecode(substr($_SERVER['REQUEST_URI'],18,$endpos-18));
+      }
+      else {
+          $view_pid = urldecode(substr($_SERVER['REQUEST_URI'],18));
+      }
       if ($view_pid == $query_root) {
           $query_pid = $query_root;
       }
