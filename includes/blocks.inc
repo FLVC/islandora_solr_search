@@ -354,13 +354,18 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
 
   $collection_options = array('' => t('All Collections'));
   $query_root = variable_get('islandora_repository_pid', 'islandora:root');
-  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
+  $collection_selected = isset($_GET['select_collection']) ? $_GET['select_collection'] : '';
+
+  $query_pid = $query_root;
+  if (!empty($collection_selected)) {
+      $query_pid = $collection_selected;
+  }
 
   $fedora_object = islandora_object_load($query_root);
   $query = 'select $subject $title from <#ri>
            where $subject <fedora-model:label> $title
            and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
-           and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_root . '>
+           and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_pid . '>
            and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
            order by $title';
   $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
