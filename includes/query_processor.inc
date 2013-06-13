@@ -177,26 +177,14 @@ class IslandoraSolrQueryProcessor {
     $facet_array = islandora_solr_get_fields('facet_fields');
     $facet_fields = implode(",", array_keys($facet_array));
 
-    if ((strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL)&&(strstr($this->solrQuery, "catch_all_foxml_text_mt") == NULL)) {
-        $snippets = '';
-    }
-
     // set params
     $params_array = array(
       'facet' => 'true',
       'facet.mincount' => variable_get('islandora_solr_facet_min_limit', '2'),
       'facet.limit' => variable_get('islandora_solr_facet_max_limit', '20'),
-      'qt' => variable_get('islandora_solr_request_handler', ''),
-      'hl' => isset($snippets) ? 'true' : NULL,
-      'hl.fl' => isset($snippets) ? $snippets : NULL,
-      'hl.snippets' => 1000,
-      'hl.fragsize' => 400,
-      'hl.maxAnalyzedChars' => 2000000,
-      'hl.simple.pre' => '<span class="islandora-solr-highlight">',
-      'hl.simple.post' => '</span>',
-      'spellcheck' => 'true',
         // Comma separated list configured in the block config.
       'facet.field' => explode(',', $facet_fields),
+      'spellcheck' => 'true',
     );
 
     $request_handler = variable_get('islandora_solr_request_handler', FALSE);
@@ -245,12 +233,17 @@ class IslandoraSolrQueryProcessor {
 
     // Highlighting.
     $highlighting_array = islandora_solr_get_snippet_fields();
+    if ((strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL)&&(strstr($this->solrQuery, "catch_all_foxml_text_mt") == NULL)) {
+        $highlighting_array = '';
+    }
     if (!empty($highlighting_array)) {
       $highlights = implode(',', $highlighting_array);
       $highlighting_params = array(
         'hl' => isset($highlights) ? 'true' : NULL,
         'hl.fl' => isset($highlights) ? $highlights : NULL,
+        'hl.snippets' => 1000,
         'hl.fragsize' => 400,
+        'hl.maxAnalyzedChars' => 2000000,
         'hl.simple.pre' => '<span class="islandora-solr-highlight">',
         'hl.simple.post' => '</span>',
       );
@@ -460,29 +453,16 @@ class IslandoraSolrQueryProcessor {
     // Loop over object results.
     foreach ($object_results as $object_index => $object_result) {
       $doc = $object_result['solr_doc'];
+      $pid = $object_result['PID'];
       $rows = array();
       // 1: Add defined fields.
       foreach ($fields_filtered as $field => $label) {
         if (isset($doc[$field]) && !empty($doc[$field])) {
-          // Check highlighting.
-          if (isset($highlighting[$pid][$field])) {
-            $value = $highlighting[$pid][$field][0];
-            $hcount = 0;
-            $adjcount = 0;
-            foreach ($highlighting[$pid][$field] as $snippet) {
-                $hcount += substr_count($snippet, 'islandora-solr-highlight');
-                $adjcount += substr_count($snippet, '</span> <span class="islandora-solr-highlight">');
-            }
-            if (strstr($this->solrQuery,':("') == NULL) {
-                $adjcount = 0;
-            }
-            $rows['highlight_count'] = $hcount - $adjcount;
-            //$rows['highlight_count'] = count($highlighting[$pid][$field]);
-            //$rows['highlight_count'] = substr_count($doc[$field][0],$this->solrQuery);
-	  }
-          else if ($field == 'OCR_t' || $field == 'FULL_TEXT_t' || $field == 'pdftext_t') {
-              // do not set full text fields for display when no highlighting
-              $value = '';
+          if ($field == 'OCR_t' || $field == 'FULL_TEXT_t' || $field == 'pdftext_t') {
+              if ((strstr($this->solrQuery, "catch_all_fulltext_mt") == NULL)&&(strstr($this->solrQuery, "catch_all_foxml_text_mt") == NULL)) {
+                  // do not set full text fields for display when not searching full text
+                  $value = '';
+              }
           }
           else if ($field == 'parent_book_id_ms') {
               $value = $this->getTitle($doc[$field][0]);

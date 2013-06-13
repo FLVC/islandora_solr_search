@@ -285,7 +285,14 @@ function islandora_solr_prepare_solr_results($solr_results) {
       else {
         // Check highlighting.
         if (isset($highlighting[$pid][$field])) {
-          $value = $highlighting[$pid][$field];
+          $value = $highlighting[$pid][$field][0];
+            $hcount = 0;
+            $adjcount = 0;
+            foreach ($highlighting[$pid][$field] as $snippet) {
+                $hcount += substr_count($snippet, 'islandora-solr-highlight');
+                $adjcount += substr_count($snippet, '</span> <span class="islandora-solr-highlight">');
+            }
+            $solr_doc['highlight_count'] = $hcount - $adjcount;
         }
         else {
           $value = $solr_doc[$field];

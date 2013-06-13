@@ -340,6 +340,10 @@ class IslandoraSolrResults {
         if ($filter[0] == '-') {
           $exclude = TRUE;
         }
+
+        // split the filter into field and value - adding back for flvc
+        $filter_split = explode(':', $filter, 2);
+
         $filter_string = $this->formatFilter($filter, $islandora_solr_query);
         // Increment filter array with current filter (for breadcrumb link).
         $query = array();
@@ -378,12 +382,12 @@ class IslandoraSolrResults {
 
         // create links
         // we're not using l() because of active classes: http://drupal.org/node/41595
-        $facetdisplay = $filter_split[1];
+        $facetdisplay = $filter_string;
         if (($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms')||($filter_split[0] == 'parent_book_id_ms')) {
-            $facetdisplay = $this->getTitle($filter_split[1]);
+            $facetdisplay = $this->getTitle($filter_string);
         }
         if ($filter_split[0] == 'RELS_EXT_hasModel_uri_ms') {
-            $facetdisplay = $this->getFormat($filter_split[1]);
+            $facetdisplay = $this->getFormat($filter_string);
         }
         $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($facetdisplay) . '</a>'
               . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
@@ -472,7 +476,7 @@ class IslandoraSolrResults {
       $path_coll = $path;
 
       // remove query from path
-      if (!in_array($islandoraSolrQuery->solrQuery, $islandoraSolrQuery->different_kinds_of_nothing))
+      if (!in_array($islandora_solr_query->solrQuery, $islandora_solr_query->differentKindsOfNothing))
           $path_coll = implode('/', explode('/', $path, -1)) . '/ ';
 
       $collection_title = $this->getTitle('info:fedora/' . $params['collection']);
