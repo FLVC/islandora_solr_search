@@ -114,9 +114,6 @@ class IslandoraSolrQueryProcessor {
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
       $this->solrDefType = $this->internalSolrParams['type'];
       $this->solrParams['defType'] = $this->internalSolrParams['type'];
-
-      //$this->solrParams['fq'][] = 'RELS_EXT_isMemberOfCollection_uri_ms:*';
-      $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
     }
 
     // XXX: Fix the query as some characters will break the search : and / are
@@ -297,6 +294,13 @@ class IslandoraSolrQueryProcessor {
       }
       $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection);
       $this->solrParams['fq'][] = trim($collections_filter);
+    }
+
+    // remove page objects from dismax and edismax
+    if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
+      //$this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
+      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
+      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
     }
 
     // Restrict results based on specified namespaces.
