@@ -274,19 +274,19 @@ function islandora_solr_simple_search_form($form, &$form_state) {
       )
     );
 
-  $form['simple']['islandora_simple_search_query'] = array(
-    '#size' => '15',
-    '#type' => 'textfield',
-    '#title' => '',
-    '#default_value' => '', // @TODO: should this be the searched value?
-  );
-
   $form['simple']['islandora_simple_collection'] = array(
     '#type' => 'select',
-    '#title' => 'in',
+    '#title' => '',
     '#default_value' => '',
     '#options' => $collection_options,
     '#default_value' => $collection_selected,
+  );
+
+  $form['simple']['islandora_simple_search_query'] = array(
+    '#size' => '15',
+    '#type' => 'textfield',
+    '#title' => 'for',
+    '#default_value' => '', // @TODO: should this be the searched value?
   );
 
   $form['simple']['submit'] = array(
