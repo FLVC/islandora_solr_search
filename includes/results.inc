@@ -937,6 +937,15 @@ class IslandoraSolrFacets {
     $facet_field = $this->facet_field;
     $facet_results = array();
     foreach ($results as $bucket => $count) {
+      // skip collections that do not match site root prefix
+      if ($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms') {
+          $root_namespace = islandora_get_namespace(variable_get('islandora_repository_pid', 'islandora:root'));
+          $collection_namespace = islandora_get_namespace(substr($bucket, 12));
+          if (($root_namespace != 'islandora')&&($collection_namespace != $root_namespace)) {
+              // skip this collection facet
+              continue;
+          }
+      }
       $bucket_value = $bucket;
       if (($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms')||($facet_field == 'parent_book_id_ms')) {
           $bucket_value = $this->getTitle($bucket);
