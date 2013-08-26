@@ -785,7 +785,7 @@ function islandora_solr_sort() {
         }
       }
       // The term is score or a date, we want descending order by default.
-      elseif ($term == 'score' || stripos($term, 'date')) {
+      elseif ($term == 'score' || stripos($term, 'date') !== false) {
         $order = 'desc';
       }
       else {
@@ -805,7 +805,13 @@ function islandora_solr_sort() {
 
       // XXX: We're not using l() because of
       // @link http://drupal.org/node/41595 active classes. @endlink
-      $item = '<a' . drupal_attributes($attr) . '>' . $label . ' ' . $indicator . '</a>';
+      if ($term == $current_sort_term) {
+        //$item = '<a' . drupal_attributes($attr) . '><b>' . $label . ' ' . $indicator . '</b></a>';
+        $item = '<a' . drupal_attributes($attr) . '><span class="islandora-solr-highlight">' . $label . ' ' . $indicator . '</span></a>';
+      }
+      else {
+        $item = '<a' . drupal_attributes($attr) . '>' . $label . ' ' . $indicator . '</a>';
+      }
 
       // Add link to list.
       $list_items[] = $item;
