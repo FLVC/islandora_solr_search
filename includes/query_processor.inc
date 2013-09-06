@@ -270,7 +270,8 @@ class IslandoraSolrQueryProcessor {
     }
 
     // Restrict results based on collection
-    if (isset($this->internalSolrParams['collection']))
+    $site_root = variable_get('islandora_repository_pid', 'islandora:root');
+    if ((isset($this->internalSolrParams['collection']))&&($this->internalSolrParams['collection'] != $site_root))
     {
 //      $this->solrParams['fq'][] = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $this->internalSolrParams['collection']);
       $collection = $this->internalSolrParams['collection'];
@@ -289,7 +290,8 @@ class IslandoraSolrQueryProcessor {
 //        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
           if ($result['content']['value'] == 'islandora:collectionCModel')
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
-          if ($result['content']['value'] == 'islandora:bookCModel')
+          if (($result['content']['value'] == 'islandora:bookCModel')&&
+              (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')))
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
       }
       $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection);
