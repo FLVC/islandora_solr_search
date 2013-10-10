@@ -39,8 +39,6 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
     if ($solr_avail) {
       // Find request handlers (~500ms).
       $handlers = _islandora_solr_get_handlers($solr_url);
-      // Check if dismax is allowed (~400ms).
-      $dismax_allowed = _islandora_solr_check_dismax($solr_url, $handler);
     }
     // Get confirmation message.
     if ($solr_avail) {
@@ -95,12 +93,6 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
       'event' => 'blur',
       'progress' => array('type' => 'throbber'),
     ),
-  );
-  $form['solr_ajax_wrapper']['islandora_solr_dismax_allowed'] = array(
-    '#type' => 'hidden',
-    '#default_value' => (isset($dismax_allowed) ?
-      $dismax_allowed :
-      $form_state['complete form']['solr_ajax_wrapper']['islandora_solr_dismax_allowed']['#default_value']),
   );
 
   // Hidden submit button.
@@ -184,17 +176,19 @@ function _islandora_solr_admin_index_settings_submit($form, &$form_state) {
     case 'edit-submit':
       variable_set('islandora_solr_url', $form_state['values']['islandora_solr_url']);
       variable_set('islandora_solr_request_handler', $form_state['values']['islandora_solr_request_handler']);
-      variable_set('islandora_solr_dismax_allowed', $form_state['values']['islandora_solr_dismax_allowed']);
       drupal_set_message(t('The Solr configuration options have been saved.'));
       break;
 
     case 'edit-reset':
       variable_del('islandora_solr_url');
       variable_del('islandora_solr_request_handler');
-      variable_del('islandora_solr_dismax_allowed');
       drupal_set_message(t('The configuration options have been reset to their default values.'));
       break;
   }
+
+  // Force renewal of the cached value, as the request handler might have
+  // changed.
+  islandora_solr_check_dismax(TRUE);
 }
 
 /**
@@ -259,7 +253,7 @@ function islandora_solr_admin_settings($form, &$form_state) {
         $profiles_sorted[$key] = $profiles[$key];
       }
       // Account for new profiles.
-      foreach (array_diff_assoc($profiles, $profiles_sorted) as $key => $value) {
+      foreach (array_diff_key($profiles, $profiles_sorted) as $key => $value) {
         $profiles_sorted[$key] = $value;
         // Add weight for new profile (heaviest +1).
         $primary_display_array['weight'][$key] = end($weight) + 1;
@@ -1103,7 +1097,8 @@ function _islandora_solr_admin_settings_submit($form, &$form_state) {
 
       // Prepare all field variables to be saved to the DB.
       $insert_values = array();
-      $field_types = array('result_fields',
+      $field_types = array(
+        'result_fields',
         'sort_fields',
         'facet_fields',
         'search_fields',
