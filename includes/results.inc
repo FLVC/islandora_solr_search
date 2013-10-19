@@ -383,7 +383,8 @@ class IslandoraSolrResults {
         // create links
         // we're not using l() because of active classes: http://drupal.org/node/41595
         $facetdisplay = $filter_string;
-        if (($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms')||($filter_split[0] == 'parent_book_id_ms')) {
+        if (($filter_split[0] == 'RELS_EXT_isMemberOfCollection_uri_ms')||($filter_split[0] == 'parent_book_id_ms')||
+            ($filter_split[0] == 'parent_issue_id_ms')||($filter_split[0] == 'parent_newspaper_id_ms')) {
             $facetdisplay = $this->getTitle($filter_string);
         }
         if ($filter_split[0] == 'RELS_EXT_hasModel_uri_ms') {
@@ -669,6 +670,7 @@ class IslandoraSolrResults {
       'info:fedora/islandora:bookCModel' => 'E-book',
       'info:fedora/islandora:compoundCModel' => 'Set of related objects',
       'info:fedora/islandora:newspaperCModel' => 'Newspaper',
+      'info:fedora/islandora:newspaperIssueCModel' => 'Newspaper issue',
       'info:fedora/islandora:newspaperPageCModel' => 'Newspaper page',
       'info:fedora/islandora:pageCModel' => 'E-book page',
       'info:fedora/islandora:sp-audioCModel' => 'Audio file',
@@ -952,7 +954,8 @@ class IslandoraSolrFacets {
           }
       }
       $bucket_value = $bucket;
-      if (($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms')||($facet_field == 'parent_book_id_ms')) {
+      if (($facet_field == 'RELS_EXT_isMemberOfCollection_uri_ms')||($facet_field == 'parent_book_id_ms')||
+          ($facet_field == 'parent_issue_id_ms')||($facet_field == 'parent_newspaper_id_ms')) {
           $bucket_value = $this->getTitle($bucket);
       }
       if ($facet_field == 'RELS_EXT_hasModel_uri_ms') {
@@ -1532,6 +1535,7 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:bookCModel' => 'E-book',
       'info:fedora/islandora:compoundCModel' => 'Set of related objects',
       'info:fedora/islandora:newspaperCModel' => 'Newspaper',
+      'info:fedora/islandora:newspaperIssueCModel' => 'Newspaper issue',
       'info:fedora/islandora:newspaperPageCModel' => 'Newspaper page',
       'info:fedora/islandora:pageCModel' => 'E-book page',
       'info:fedora/islandora:sp-audioCModel' => 'Audio file',

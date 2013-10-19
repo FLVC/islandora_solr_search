@@ -281,7 +281,8 @@ class IslandoraSolrQueryProcessor {
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
       $query = 'select $subject $content from <#ri>
                where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>
-                    or $content <mulgara:is> <info:fedora/islandora:bookCModel>))
+                    or $content <mulgara:is> <info:fedora/islandora:bookCModel> 
+                    or $content <mulgara:is> <info:fedora/islandora:newspaperCModel> or $content <mulgara:is> <info:fedora/islandora:newspaperIssueCModel>))
                and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
                and $subject <fedora-rels-ext:isMemberOfCollection> $object)
                and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
@@ -290,6 +291,19 @@ class IslandoraSolrQueryProcessor {
 //        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
           if ($result['content']['value'] == 'islandora:collectionCModel')
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+          if ($result['content']['value'] == 'islandora:newspaperCModel') {
+              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+              if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
+                //$issue_search_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
+                //$issue_search_query = 'select $issue from <#ri> where $issue <fedora-rels-ext:isMemberOf> <info:fedora/' . $result['subject']['value'] . '>
+                //                       and $issue <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
+                //$issue_search_results = $issue_search_object->repository->ri->itqlQuery($issue_search_query, 'unlimited');
+                //foreach ($issue_search_results as $issue_search_result) {
+                //    $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $issue_search_result['issue']['value']) . ' OR ';
+                //}
+                $collections_filter = $collections_filter . 'parent_newspaper_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+              }
+          }
           if (($result['content']['value'] == 'islandora:bookCModel')&&
               (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')))
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
@@ -471,7 +485,7 @@ class IslandoraSolrQueryProcessor {
                   $value = '';
               }
           }
-          else if ($field == 'parent_book_id_ms') {
+          else if (($field == 'parent_book_id_ms')||($field == 'parent_issue_id_ms')||($field == 'parent_newspaper_id_ms')) {
               $value = $this->getTitle($doc[$field][0]);
           }
           else if ($field == 'RELS_EXT_hasModel_uri_ms') {
@@ -515,6 +529,7 @@ class IslandoraSolrQueryProcessor {
       'info:fedora/islandora:bookCModel' => 'E-book',
       'info:fedora/islandora:compoundCModel' => 'Set of related objects',
       'info:fedora/islandora:newspaperCModel' => 'Newspaper',
+      'info:fedora/islandora:newspaperIssueCModel' => 'Newspaper issue',
       'info:fedora/islandora:newspaperPageCModel' => 'Newspaper page',
       'info:fedora/islandora:pageCModel' => 'E-book page',
       'info:fedora/islandora:sp-audioCModel' => 'Audio file',
