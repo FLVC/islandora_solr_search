@@ -403,6 +403,17 @@ class IslandoraSolrQueryProcessor {
             $object_label_value = $object_result[$object_label];
             $object_results[$object_index]['object_label'] = is_array($object_label_value) ? implode(", ", $object_label_value) : $object_label_value;
           }
+          // reset to more useful information for book and newspaper page objects
+          if (isset($object_result[$content_model_solr_field]) && ($object_result[$content_model_solr_field][0] == 'info:fedora/islandora:pageCModel')) {
+              if (isset($object_result['RELS_EXT_isPageNumber_literal_ms']) && isset($object_result['RELS_EXT_isPageOf_uri_ms'])) {
+                  $object_results[$object_index]['object_label'] = $this->getTitle($object_result['RELS_EXT_isPageOf_uri_ms'][0]) . ' (' . $object_result['RELS_EXT_isPageNumber_literal_ms'][0] . ')';
+              }
+          }
+          if (isset($object_result[$content_model_solr_field]) && ($object_result[$content_model_solr_field][0] == 'info:fedora/islandora:newspaperPageCModel')) {
+              if (isset($object_result['RELS_EXT_isPageNumber_literal_ms']) && isset($object_result['RELS_EXT_isPageOf_uri_ms'])) {
+                  $object_results[$object_index]['object_label'] = $this->getTitle($object_result['RELS_EXT_isPageOf_uri_ms'][0]) . ' (PAGE ' . $object_result['RELS_EXT_isPageNumber_literal_ms'][0] . ')';
+              }
+          }
           if (!isset($object_result[$datastream_field]) || in_array('TN', $object_result[$datastream_field])) {
             // XXX: Would be good to have an access check on the TN here...
             // Doesn't seem to a nice way without loading the object, which
