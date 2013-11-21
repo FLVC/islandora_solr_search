@@ -317,6 +317,7 @@ class IslandoraSolrQueryProcessor {
       //$this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
       $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
       $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
+      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperIssueCModel';
     }
 
     // Restrict results based on specified namespaces.
