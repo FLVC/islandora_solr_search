@@ -256,7 +256,7 @@ function islandora_solr_simple_search_form($form, &$form_state) {
                where $subject <fedora-model:label> $title
                and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
                and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_pid . '>
-               and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+               and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
                order by $title';
       $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
       foreach ($results as $result) {
@@ -366,7 +366,7 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
            where $subject <fedora-model:label> $title
            and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
            and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_pid . '>
-           and $object <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
+           and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
            order by $title';
   $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
   foreach ($results as $result) {

@@ -678,6 +678,7 @@ class IslandoraSolrResults {
       'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
+      'info:fedora/islandora:fileStorageCModel' => 'Binary object',
     );
 
     if (isset($format_array[$hasModel])) {
@@ -1543,6 +1544,7 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
+      'info:fedora/islandora:fileStorageCModel' => 'Binary object',
     );
 
     if (isset($format_array[$hasModel])) {
