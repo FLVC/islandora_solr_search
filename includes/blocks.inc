@@ -393,6 +393,7 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
   }
 
   $fedora_object = islandora_object_load($query_root);
+/*
   $query = 'select $subject $title from <#ri>
            where $subject <fedora-model:label> $title
            and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
@@ -400,9 +401,39 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
            and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
            order by $title';
   $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+*/
+  $collections_query = <<<EOQ
+SELECT ?object ?title
+FROM <#ri>
+WHERE {
+?object <fedora-rels-ext:isMemberOfCollection> <info:fedora/!pid> ;
+        <fedora-model:label> ?title ;
+        <fedora-model:hasModel> <info:fedora/islandora:collectionCModel> ;
+        <fedora-model:state> <fedora-model:Active> .
+OPTIONAL {?object <http://islandora.ca/ontology/relsext#isViewableByRole> ?role . }
+OPTIONAL {?object <http://islandora.ca/ontology/relsext#isViewableByUser> ?user . } .
+!filters
+}
+ORDER BY ?title
+EOQ;
+
+  $filters = array();
+  $query_filters = module_invoke_all('islandora_basic_collection_get_query_filters', 'view');
+  foreach ($query_filters as $filter) {
+    if ((strstr($filter, 'user'))&&(strstr($filter, 'role'))) {
+        $filters[] = "FILTER($filter)";
+    }
+  }
+
+  $collections_query = format_string($collections_query, array(
+    '!pid' => $query_pid,
+    '!filters' => implode(' ', $filters),
+  ));
+
+  $results = $fedora_object->repository->ri->sparqlQuery($collections_query);
+
   foreach ($results as $result) {
-    //$collection_id = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']);
-    $collection_id = $result['subject']['value'];
+    $collection_id = $result['object']['value'];
     $collection_title = $result['title']['value'];
     $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
   }
