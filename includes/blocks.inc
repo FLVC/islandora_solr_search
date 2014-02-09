@@ -164,6 +164,9 @@ function islandora_solr_simple_search_form($form, &$form_state) {
   }
   else if (strpos($_SERVER['REQUEST_URI'],'islandora/object/')) {
       $endpos = strpos($_SERVER['REQUEST_URI'], '/', 18);
+      if ($endpos === false) {
+          $endpos = strpos($_SERVER['REQUEST_URI'], '?', 18);
+      }
       if ($endpos) {
           $view_pid = urldecode(substr($_SERVER['REQUEST_URI'],18,$endpos-18));
       }
