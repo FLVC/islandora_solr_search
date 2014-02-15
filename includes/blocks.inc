@@ -212,23 +212,11 @@ function islandora_solr_simple_search_form($form, &$form_state) {
                 (strpos($object_content_type, 'newspaperIssueCModel'))||
                 (strpos($object_content_type, 'newspaperPageCModel')))
             {
-/*
-                $query_book = 'select $parentObject $content from <#ri>
-                        where (
-                        $parentObject <fedora-model:hasModel> $content
-                        and <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject
-                        and $parentObject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
-                      )
-                      minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>
-                      minus $parentObject <mulgara:is> <info:fedora/' . $query_pid . '>
-                      order by $title desc';
-*/
                 $query_book = 'select $parentObject $collection from <#ri>
                         where (
                         $parentObject <fedora-rels-ext:isMemberOfCollection> $collection and
                         walk(<info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject and $subject <fedora-rels-ext:isMemberOf> $parentObject)
-                      )
-                      order by $title desc';
+                      )';
                 $results = $fedora_object->repository->ri->itqlQuery($query_book, 'unlimited');
                 if (count($results) > 0) {
                     $query_pid = $results[0]['parentObject']['value'];
