@@ -207,9 +207,12 @@ function islandora_solr_simple_search_form($form, &$form_state) {
           {
             // at a non-collection object
 
-            // special processing if at a book page object
-            if (strpos($object_content_type, 'pageCModel'))
+            // special processing if at a newspaper issue, newspaper page, or book page object
+            if ((strpos($object_content_type, 'pageCModel'))||
+                (strpos($object_content_type, 'newspaperIssueCModel'))||
+                (strpos($object_content_type, 'newspaperPageCModel')))
             {
+/*
                 $query_book = 'select $parentObject $content from <#ri>
                         where (
                         $parentObject <fedora-model:hasModel> $content
@@ -218,6 +221,13 @@ function islandora_solr_simple_search_form($form, &$form_state) {
                       )
                       minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>
                       minus $parentObject <mulgara:is> <info:fedora/' . $query_pid . '>
+                      order by $title desc';
+*/
+                $query_book = 'select $parentObject $collection from <#ri>
+                        where (
+                        $parentObject <fedora-rels-ext:isMemberOfCollection> $collection and
+                        walk(<info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject and $subject <fedora-rels-ext:isMemberOf> $parentObject)
+                      )
                       order by $title desc';
                 $results = $fedora_object->repository->ri->itqlQuery($query_book, 'unlimited');
                 if (count($results) > 0) {
@@ -240,7 +250,11 @@ function islandora_solr_simple_search_form($form, &$form_state) {
                       order by $title desc';
             $results = $fedora_object->repository->ri->itqlQuery($query_string, 'unlimited');
             foreach ($results as $result) {
-                $collection_options = array_merge($collection_options, array($result['parentObject']['value'] => $result['title']['value']));
+                // only add parent collection if namespace matches site root
+                $root_namespace = islandora_get_namespace($query_root);
+                if (($root_namespace == 'islandora')||(islandora_get_namespace($result['parentObject']['value']) == $root_namespace)) {
+                    $collection_options = array_merge($collection_options, array($result['parentObject']['value'] => $result['title']['value']));
+                }
             }
             if (count($results) > 0) {
                 $collection_selected = $results[0]['parentObject']['value'];
