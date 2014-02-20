@@ -678,7 +678,7 @@ class IslandoraSolrResults {
       'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
-      'info:fedora/islandora:fileStorageCModel' => 'Binary object',
+      'info:fedora/islandora:fileStorageCModel' => 'Downloadable file',
     );
 
     if (isset($format_array[$hasModel])) {
@@ -964,7 +964,8 @@ class IslandoraSolrFacets {
       }
       $facet_results[] = array(
         'count' => $count,
-        'filter' => $facet_field . ':"' . $bucket . '"', // PID:"foo"
+        //'filter' => $facet_field . ':"' . $bucket . '"', // PID:"foo"
+        'filter' => $facet_field . ':"' . preg_replace('/("|\\\)/', '\\\$1', $bucket) . '"', // PID:"foo"
         'bucket' => $bucket_value,
         //'bucket' => $bucket,
       );
@@ -1544,7 +1545,7 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
-      'info:fedora/islandora:fileStorageCModel' => 'Binary object',
+      'info:fedora/islandora:fileStorageCModel' => 'Downloadable file',
     );
 
     if (isset($format_array[$hasModel])) {
