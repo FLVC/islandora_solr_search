@@ -144,6 +144,10 @@ class IslandoraSolrQueryProcessor {
         $this->solrParams['sort'] = $sort_explode[0] . ' asc';
       }
     }
+    else if ($this->solrQuery == ' ') {
+      // if the search was empty, sort by title
+      $this->solrParams['sort'] = 'title_sort asc';
+    }
     else {
       $base_sort = variable_get('islandora_solr_base_sort', '');
       $base_sort = trim($base_sort);

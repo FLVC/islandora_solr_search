@@ -388,16 +388,28 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
   // include common.inc
   module_load_include('inc', 'islandora_solr', 'includes/common');
 
-  $collection_options = array('' => t('All Collections'));
+  $collection_options = array();
   $query_root = variable_get('islandora_repository_pid', 'islandora:root');
-  $collection_selected = isset($_GET['select_collection']) ? $_GET['select_collection'] : '';
+  //$collection_selected = isset($_GET['select_collection']) ? $_GET['select_collection'] : '';
+  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
 
   $query_pid = $query_root;
+  $fedora_object = islandora_object_load($query_root);
+
   if (!empty($collection_selected)) {
       $query_pid = $collection_selected;
+
+      $titlequery = 'select $title from <#ri>
+                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      foreach ($results as $result) {
+          $collection_title =  $result['title']['value'];
+      }
+      $collection_options = array_merge($collection_options, array($collection_selected => $collection_title));
   }
 
-  $fedora_object = islandora_object_load($query_root);
+  $collection_options = array_merge($collection_options, array('' => t('All Collections')));
+
 /*
   $query = 'select $subject $title from <#ri>
            where $subject <fedora-model:label> $title
