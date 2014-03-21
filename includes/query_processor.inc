@@ -556,7 +556,7 @@ class IslandoraSolrQueryProcessor {
       'info:fedora/islandora:sp_large_image_cmodel' => 'Image (JPEG2000)',
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
-      'info:fedora/islandora:fileStorageCModel' => 'Downloadable file',
+      'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
     );
 
     if (isset($format_array[$hasModel])) {
