@@ -507,6 +507,9 @@ class IslandoraSolrQueryProcessor {
           else if ($field == 'RELS_EXT_hasModel_uri_ms') {
               $value = $this->getFormat($doc[$field][0]);
           }
+          else if (($field == 'mods_titleInfo_title_ms')&&(isset($fields_filtered['title_display_ms']))&&(isset($doc['title_display_ms']))&&(!empty($doc['title_display_ms']))) {
+            $value = '';
+          }
           else {
             $value = $doc[$field];
           }
