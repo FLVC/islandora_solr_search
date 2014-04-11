@@ -21,6 +21,14 @@ function islandora_solr_islandora_solr_query_blocks() {
       'function' => NULL,
       'form' => 'islandora_solr_advanced_search_form',
     ),
+    'metadata' => array(
+      'name' => t('Islandora metadata search'),
+      'module' => 'islandora_solr',
+      'file' => 'includes/blocks.inc',
+      'class' => NULL,
+      'function' => NULL,
+      'form' => 'islandora_solr_metadata_search_form',
+    ),
     'simple' => array(
       'name' => t('Islandora simple search'),
       'module' => 'islandora_solr',
@@ -704,6 +712,130 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
 
   // navigate to results page
   drupal_goto('islandora/search/' . $query, array('query' => $params));
+}
+
+function islandora_solr_metadata_search_form($form, &$form_state) {
+  global $_islandora_solr_queryclass;
+
+  // include common.inc
+  module_load_include('inc', 'islandora_solr', 'includes/common');
+/*
+  $form['metadata'] = array(
+    '#type' => 'container',
+    '#attributes' => array(
+      'class' => array(
+        'container-inline')
+      )
+  );
+*/
+  $form['islandora_metadata_search_field'] = array(
+    '#size' => '45',
+    '#type' => 'textfield',
+    '#title' => 'Search Solr field',
+    '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
+    '#default_value' => '',
+  );
+
+  $form['islandora_metadata_search_query'] = array(
+    '#size' => '45',
+    '#type' => 'textfield',
+    '#title' => 'Term Match for *_mt, Phrase Match for *_ms',
+    '#default_value' => '',
+  );
+
+  $collection_options = array();
+  $query_root = variable_get('islandora_repository_pid', 'islandora:root');
+  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
+
+  $query_pid = $query_root;
+  $fedora_object = islandora_object_load($query_root);
+
+  if (!empty($collection_selected)) {
+      $query_pid = $collection_selected;
+
+      $titlequery = 'select $title from <#ri>
+                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      foreach ($results as $result) {
+          $collection_title =  $result['title']['value'];
+      }
+      $collection_options = array_merge($collection_options, array($collection_selected => $collection_title));
+  }
+
+  $collection_options = array_merge($collection_options, array('' => t('All Collections')));
+
+  $collections_query = <<<EOQ
+SELECT ?object ?title
+FROM <#ri>
+WHERE {
+?object <fedora-rels-ext:isMemberOfCollection> <info:fedora/!pid> ;
+        <fedora-model:label> ?title ;
+        <fedora-model:hasModel> <info:fedora/islandora:collectionCModel> ;
+        <fedora-model:state> <fedora-model:Active> .
+OPTIONAL {?object <http://islandora.ca/ontology/relsext#isViewableByRole> ?role . }
+OPTIONAL {?object <http://islandora.ca/ontology/relsext#isViewableByUser> ?user . } .
+!filters
+}
+ORDER BY ?title
+EOQ;
+
+  $filters = array();
+  $query_filters = module_invoke_all('islandora_basic_collection_get_query_filters', 'view');
+  foreach ($query_filters as $filter) {
+    if ((strstr($filter, 'user'))&&(strstr($filter, 'role'))) {
+        $filters[] = "FILTER($filter)";
+    }
+  }
+
+  $collections_query = format_string($collections_query, array(
+    '!pid' => $query_pid,
+    '!filters' => implode(' ', $filters),
+  ));
+
+  $results = $fedora_object->repository->ri->sparqlQuery($collections_query);
+
+  foreach ($results as $result) {
+    $collection_id = $result['object']['value'];
+    $collection_title = $result['title']['value'];
+    $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+  }
+
+  $form['islandora_metadata_collection'] = array(
+    '#type' => 'select',
+    '#default_value' => '',
+    '#options' => $collection_options,
+    '#default_value' => $collection_selected,
+  );
+  $form['controls']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+  );
+
+
+  return $form;
+}
+
+function islandora_solr_metadata_search_form_submit($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+  $search_string = $form_state['values']['islandora_metadata_search_field'];
+  $search_string .= ':';
+  if (strstr($form_state['values']['islandora_metadata_search_field'],"_ms")) $search_string .= '"';
+  $search_string .= $form_state['values']['islandora_metadata_search_query'];
+  if (strstr($form_state['values']['islandora_metadata_search_field'],"_ms")) $search_string .= '"';
+
+  $search_string = str_replace('/', '~slsh~', $search_string);
+
+  // set query
+  //$query = array('type' => 'edismax');
+  $query = array();
+  
+
+  $collection = $form_state['values']['islandora_metadata_collection'];
+  if (isset($collection) && !empty($collection)) {
+      $query = array_merge($query, array('collection' => $collection));
+  }
+
+  drupal_goto('islandora/search/' . $search_string, array('query' => $query));
 }
 
 /**

@@ -122,6 +122,12 @@ function islandora_solr_theme() {
         'form' => NULL,
       ),
     ),
+    // Metadata solr search form/block.
+    'islandora_solr_metadata_search_form' => array(
+      'variables' => array(
+        'form' => NULL,
+      ),
+    ),
     // Theme admin form.
     'islandora_solr_admin_primary_display' => array(
       'path' => $path,
