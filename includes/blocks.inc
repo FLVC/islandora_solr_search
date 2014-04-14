@@ -29,6 +29,14 @@ function islandora_solr_islandora_solr_query_blocks() {
       'function' => NULL,
       'form' => 'islandora_solr_metadata_search_form',
     ),
+    'browse' => array(
+      'name' => t('Islandora metadata browse'),
+      'module' => 'islandora_solr',
+      'file' => 'includes/blocks.inc',
+      'class' => NULL,
+      'function' => NULL,
+      'form' => 'islandora_solr_metadata_browse_form',
+    ),
     'simple' => array(
       'name' => t('Islandora simple search'),
       'module' => 'islandora_solr',
@@ -1032,6 +1040,130 @@ function islandora_solr_metadata_search_form_submit($form, &$form_state) {
 
   //drupal_goto('islandora/search/' . $search_string, array('query' => $query));
   drupal_goto('islandora/search/' . $query, array('query' => $params));
+}
+
+function islandora_solr_metadata_browse_form($form, &$form_state) {
+  global $_islandora_solr_queryclass;
+
+  // include common.inc
+  module_load_include('inc', 'islandora_solr', 'includes/common');
+
+  $collection_options = array();
+  $query_root = variable_get('islandora_repository_pid', 'islandora:root');
+  //$collection_selected = isset($_GET['select_collection']) ? $_GET['select_collection'] : '';
+  $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
+
+  $query_pid = $query_root;
+  $fedora_object = islandora_object_load($query_root);
+
+  if (!empty($collection_selected)) {
+      $query_pid = $collection_selected;
+
+      $titlequery = 'select $title from <#ri>
+                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
+      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      foreach ($results as $result) {
+          $collection_title =  $result['title']['value'];
+      }
+      $collection_options = array_merge($collection_options, array($collection_selected => $collection_title));
+  }
+
+  $collection_options = array_merge($collection_options, array('' => t('All Collections')));
+
+  $collections_query = <<<EOQ
+SELECT ?object ?title
+FROM <#ri>
+WHERE {
+?object <fedora-rels-ext:isMemberOfCollection> <info:fedora/!pid> ;
+        <fedora-model:label> ?title ;
+        <fedora-model:hasModel> <info:fedora/islandora:collectionCModel> ;
+        <fedora-model:state> <fedora-model:Active> .
+OPTIONAL {?object <http://islandora.ca/ontology/relsext#isViewableByRole> ?role . }
+OPTIONAL {?object <http://islandora.ca/ontology/relsext#isViewableByUser> ?user . } .
+!filters
+}
+ORDER BY ?title
+EOQ;
+
+  $filters = array();
+  $query_filters = module_invoke_all('islandora_basic_collection_get_query_filters', 'view');
+  foreach ($query_filters as $filter) {
+    if ((strstr($filter, 'user'))&&(strstr($filter, 'role'))) {
+        $filters[] = "FILTER($filter)";
+    }
+  }
+
+  $collections_query = format_string($collections_query, array(
+    '!pid' => $query_pid,
+    '!filters' => implode(' ', $filters),
+  ));
+
+  $results = $fedora_object->repository->ri->sparqlQuery($collections_query);
+
+  foreach ($results as $result) {
+    $collection_id = $result['object']['value'];
+    $collection_title = $result['title']['value'];
+    $collection_options = array_merge($collection_options, array($collection_id => $collection_title));
+  }
+
+    $form['browse_field'] = array(
+      '#size' => '45',
+      '#type' => 'textfield',
+      '#title' => 'Browse Solr field (use field ending with _ms)',
+      '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
+      '#default_value' => '',
+    );
+
+  $form['browse_sort'] = array(
+    '#title' => 'Sort by',
+    '#type' => 'select',
+    '#default_value' => 'index',
+    '#options' => array('index' => 'alphabetical', 'count' => 'count'),
+  );
+
+    $form['browse_rows'] = array(
+    '#title' => 'Rows per page',
+    '#type' => 'select',
+    '#default_value' => '100',
+    '#options' => array('100' => '100', '1000' => '1000', '10000' => '10000'),
+  );
+
+
+  $form['browse_collection'] = array(
+    '#type' => 'select',
+    '#options' => $collection_options,
+    '#default_value' => $collection_selected,
+  );
+
+  // Add controls.
+  $form['controls'] = array(
+    '#type' => 'markup',
+    '#prefix' => '<div class="islandora-solr-advanced-controls">',
+    '#suffix' => '</div>',
+  );
+
+  $form['controls']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+  );
+  return $form;
+}
+
+function islandora_solr_metadata_browse_form_submit($form, &$form_state) {
+
+  // set query
+  $query = array(
+    'solrfield' => $form_state['values']['browse_field'],
+    'sort' => $form_state['values']['browse_sort'],
+    'pagesize' => $form_state['values']['browse_rows'],
+  );
+
+  $collection = $form_state['values']['browse_collection'];
+  if (isset($collection) && !empty($collection)) {
+      $query = array_merge($query, array('collection' => $collection));
+  }
+
+  drupal_goto('browse/report', array('query' => $query));
 }
 
 /**
