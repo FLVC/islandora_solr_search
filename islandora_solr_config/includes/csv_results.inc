@@ -101,12 +101,17 @@ function islandora_solr_config_csv_batch_update_operation($islandora_solr_query,
   // if "limit results" is selected. If it's not we will return all the fields.
   $object_results = islandora_solr_prepare_solr_doc($object_results);
   $headers = &$context['results']['islandora_solr_csv_headers'];
+  if (!isset($headers['PID'])) $headers['PID'] = 'PID';
   foreach ($object_results as $object) {
     $csv_array = array();
     foreach ($headers as $field => $label) {
+      if ($field == 'PID') {
+          $csv_array[] = $object['PID'];
+      } else {
       $csv_array[] = isset($object['solr_doc'][$field]['value']) ?
         implode('; ', (array) $object['solr_doc'][$field]['value']) :
         '';
+      }
     }
     foreach (array_diff_key($object['solr_doc'], $headers) as $field => $values) {
       $headers[$field] = $values['label'];

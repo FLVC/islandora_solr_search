@@ -719,29 +719,166 @@ function islandora_solr_metadata_search_form($form, &$form_state) {
 
   // include common.inc
   module_load_include('inc', 'islandora_solr', 'includes/common');
-/*
-  $form['metadata'] = array(
-    '#type' => 'container',
-    '#attributes' => array(
-      'class' => array(
-        'container-inline')
-      )
-  );
-*/
-  $form['islandora_metadata_search_field'] = array(
-    '#size' => '45',
-    '#type' => 'textfield',
-    '#title' => 'Search Solr field',
-    '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
-    '#default_value' => '',
-  );
 
-  $form['islandora_metadata_search_query'] = array(
-    '#size' => '45',
-    '#type' => 'textfield',
-    '#title' => 'Term Match for *_mt, Phrase Match for *_ms',
-    '#default_value' => '',
+  // check form states
+  // 1. form update using ajax
+  // 2. populate with current query on search results page
+  // 3. anywhere else: empty form
+
+  // 1. form update using ajax
+  if (isset($form_state['triggering_element'])) {
+
+    unset($form_state['input']['terms']);
+    // Check for add.
+    if ($form_state['triggering_element']['#value'] == '+') {
+      $form_state['values']['terms'][] = array();
+    }
+    // Check for remove.
+    elseif ($form_state['triggering_element']['#value'] == '-') {
+      $field = $form_state['triggering_element']['#field'];
+      array_splice($form_state['values']['terms'], $field, 1);
+    }
+
+    $values = $form_state['values'];
+  }
+  // 2: Populate with current query on search results page.
+  elseif (islandora_solr_results_page($_islandora_solr_queryclass) == TRUE && !isset($_islandora_solr_queryclass->internalSolrParams['type'])) {
+
+    // Get current query.
+    $query = $_islandora_solr_queryclass->solrQuery;
+
+    $values['terms'] = array();
+
+    $query_explode = explode(' ', $query);
+
+    // Break up the solr query to populate the advanced search form.
+    $i = 0;
+    foreach ($query_explode as $key => $value) {
+      $term = array();
+
+      // Check for first colon to split the string.
+      if (strpos($value, ':') != FALSE) {
+        // Split the filter into field and value.
+        $value_split = explode(':', $value, 2);
+
+        $values['terms'][$i]['field'] = $value_split[0];
+
+        // Second part of the split is the query value (or first part of it).
+        $value_split[1] = str_replace(array('(', ')'), '', $value_split[1]);
+
+        $values['terms'][$i]['search'] = $value_split[1];
+
+      }
+      // If the string does not include a colon or AND/OR/NOT, then it is a
+      // part of the query value.
+      elseif (!preg_match('/(AND|OR|NOT)/', $value, $matches)) {
+        // Trim brackets.
+        $value = str_replace(array('(', ')'), '', $value);
+
+        if (isset($values['terms'][$i]['search'])) {
+          // Append to search string.
+          $values['terms'][$i]['search'] .= ' ' . $value;
+        }
+        else {
+          // Search field is not set, so create new search value.
+          $values['terms'][$i]['search'] = $value;
+        }
+      }
+      // If it matches AND/OR/NOT, then we have the boolean operator.
+      else {
+        $values['terms'][$i]['boolean'] = $value;
+
+        // XXX: Something about only incrementing here seems... Wrong?
+        $i++;
+      }
+    }
+  }
+  // 3: Anywhere else: empty form.
+  else {
+    // Need at least one term to draw the search box.
+    $values = array(
+      'terms' => array(''),
+    );
+  }
+
+  $terms = array(
+    '#type' => 'markup',
+    '#prefix' => '<div id="islandora-solr-metadata-terms">',
+    '#suffix' => '</div>',
+    '#tree' => TRUE,
   );
+  foreach ($values['terms'] as $i => $value) {
+    $term = array(
+      '#tree' => TRUE,
+      '#prefix' => '<div>',
+      '#suffix' => '</div>',
+    );
+    $term['field'] = array(
+      '#size' => '45',
+      '#type' => 'textfield',
+      '#title' => 'Search Solr field',
+      '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
+      '#default_value' => isset($value['field']) ? $value['field'] : '',
+    );
+    $term['search'] = array(
+      '#size' => '20',
+      '#type' => 'textfield',
+      '#title' => 'Term Match for *_mt, Phrase Match for *_ms',
+      '#default_value' => isset($value['search']) ? $value['search'] : '',
+    );
+    // Used for when the user presses enter on the search field.
+    $term['hidden_submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Search'),
+      '#attributes' => array('style' => 'visibility:hidden;position:fixed;top:-1000px;right:-1000px;'),
+    );
+    $term['add'] = array(
+      '#type' => 'button',
+      '#value' => '+',
+      '#attributes' => array('title' => t('Add field')),
+      '#name' => 'add-field-' . $i,
+      '#ajax' => array(
+        'callback' => '_islandora_solr_metadata_search_terms',
+        'wrapper' => 'islandora-solr-metadata-terms',
+        'method' => 'replace',
+        'effect' => 'fade',
+        'progress' => array('type' => 'none'),
+      ),
+    );
+    if (count($values['terms']) > 1) {
+      $term['remove'] = array(
+        '#type' => 'button',
+        '#field' => $i,
+        '#value' => '-',
+        '#attributes' => array('title' => t('Remove field')),
+        '#name' => 'remove-field-' . $i,
+        '#ajax' => array(
+          'callback' => '_islandora_solr_metadata_search_terms',
+          'wrapper' => 'islandora-solr-metadata-terms',
+          'method' => 'replace',
+          'effect' => 'fade',
+          'progress' => array('type' => 'none'),
+        ),
+      );
+      if ((variable_get('islandora_solr_search_boolean', 'user') == 'user') && ((count($values['terms']) - 1) != $i)) {
+        $term['boolean'] = array(
+          '#type' => 'select',
+          '#prefix' => '<div>',
+          '#suffix' => '</div>',
+          '#default_value' => isset($value['boolean']) ? $value['boolean'] : 'AND',
+          '#options' => array(
+            'AND' => 'AND',
+            'OR' => 'OR',
+            'NOT' => 'NOT',
+          ),
+        );
+      }
+    }
+    $terms[] = $term;
+  }
+
+  // Add terms.
+  $form['terms'] = $terms;
 
   $collection_options = array();
   $query_root = variable_get('islandora_repository_pid', 'islandora:root');
@@ -806,36 +943,95 @@ EOQ;
     '#options' => $collection_options,
     '#default_value' => $collection_selected,
   );
+
+  // Add controls.
+  $form['controls'] = array(
+    '#type' => 'markup',
+    '#prefix' => '<div class="islandora-solr-advanced-controls">',
+    '#suffix' => '</div>',
+  );
   $form['controls']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Search'),
   );
 
-
   return $form;
 }
 
-function islandora_solr_metadata_search_form_submit($form, &$form_state) {
-  $form_state['rebuild'] = TRUE;
-  $search_string = $form_state['values']['islandora_metadata_search_field'];
-  $search_string .= ':';
-  if (strstr($form_state['values']['islandora_metadata_search_field'],"_ms")) $search_string .= '"';
-  $search_string .= $form_state['values']['islandora_metadata_search_query'];
-  if (strstr($form_state['values']['islandora_metadata_search_field'],"_ms")) $search_string .= '"';
+/**
+ * AJAX callback for metadata search form.
+ *
+ * @param array $form
+ *   An associative array containing form structure.
+ * @param array $form_state
+ *   An associative array containing form state.
+ *
+ * @return array
+ *   An associative array containing the fully built form element.
+ *
+ * @see islandora_solr_metadata_search_form()
+ */
+function _islandora_solr_metadata_search_terms($form, &$form_state) {
+  return $form['terms'];
+}
 
-  $search_string = str_replace('/', '~slsh~', $search_string);
+function islandora_solr_metadata_search_form_submit($form, &$form_state) {
+  //$form_state['rebuild'] = TRUE;
+  //$search_string = $form_state['values']['islandora_metadata_search_field'];
+  //$search_string .= ':';
+  //if (strstr($form_state['values']['islandora_metadata_search_field'],"_ms")) $search_string .= '"';
+  //$search_string .= $form_state['values']['islandora_metadata_search_query'];
+  //if (strstr($form_state['values']['islandora_metadata_search_field'],"_ms")) $search_string .= '"';
+  //$search_string = str_replace('/', '~slsh~', $search_string);
 
   // set query
   //$query = array('type' => 'edismax');
-  $query = array();
-  
+  //$query = array();
 
-  $collection = $form_state['values']['islandora_metadata_collection'];
-  if (isset($collection) && !empty($collection)) {
-      $query = array_merge($query, array('collection' => $collection));
+  // Collect query values.
+  $query_array = array();
+  foreach ($form_state['values']['terms'] as $term) {
+    $field = $term['field'];
+    $search = trim($term['search']);
+    // XXX: Should probably use islandora_solr_replace_slashes().
+    $search = str_replace('/', '~slsh~', $search);
+    $boolean = (isset($term['boolean'])) ? $term['boolean'] : variable_get('islandora_solr_search_boolean', 'user');
+
+    // Add query.
+    if (!empty($search)) {
+      if (strstr($field,"_ms")) $search = '"' . $search . '"';
+      $query_array[] = array(
+        'search' => "$field:($search)",
+        'boolean' => $boolean,
+      );
+    }
   }
 
-  drupal_goto('islandora/search/' . $search_string, array('query' => $query));
+  // Create query.
+  $query = '';
+  $i = 0;
+  foreach ($query_array as $term) {
+    $query .= $term['search'];
+    if (count($query_array) - 1 != $i) {
+      $query .= ' ' . $term['boolean'] . ' ';
+    }
+    $i++;
+  }
+
+  // Check if query is empty.
+  if (empty($query)) {
+    $query = '*:*';
+  }
+
+  $params = array();
+  $collection = $form_state['values']['islandora_metadata_collection'];
+  if (isset($collection) && !empty($collection)) {
+      //$query = array_merge($query, array('collection' => $collection));
+      $params = array_merge($params, array('collection' => $collection));
+  }
+
+  //drupal_goto('islandora/search/' . $search_string, array('query' => $query));
+  drupal_goto('islandora/search/' . $query, array('query' => $params));
 }
 
 /**
