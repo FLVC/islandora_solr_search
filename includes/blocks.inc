@@ -1111,7 +1111,7 @@ EOQ;
       '#type' => 'textfield',
       '#title' => 'Browse Solr field (use field ending with _ms)',
       '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
-      '#default_value' => '',
+      '#default_value' => isset($form_state['values']['browse_field']) ? $form_state['values']['browse_field'] : '',
     );
 
   $form['browse_sort'] = array(
