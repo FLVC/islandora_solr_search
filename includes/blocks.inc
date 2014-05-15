@@ -629,17 +629,19 @@ EOQ;
 
   // Add terms.
   $form['terms'] = $terms;
-  // Add controls.
-  $form['controls'] = array(
-    '#type' => 'markup',
-    '#prefix' => '<div class="islandora-solr-advanced-controls">',
-    '#suffix' => '</div>',
-  );
+
   $form['islandora_advanced_collection'] = array(
     '#type' => 'select',
     '#default_value' => '',
     '#options' => $collection_options,
     '#default_value' => $collection_selected,
+  );
+
+  // Add controls.
+  $form['controls'] = array(
+    '#type' => 'markup',
+    '#prefix' => '<div class="islandora-solr-advanced-controls">',
+    '#suffix' => '</div>',
   );
   $form['controls']['submit'] = array(
     '#type' => 'submit',
