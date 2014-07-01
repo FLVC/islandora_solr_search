@@ -223,10 +223,19 @@ function islandora_solr_simple_search_form($form, &$form_state) {
           {
             // at a non-collection object
 
-            // special processing if at a newspaper issue, newspaper page, or book page object
+            // check for isComponentOf
+            $view_object = islandora_object_load($query_pid);
+            $component_of = $view_object->relationships->get(ISLANDORA_RELS_EXT_URI, 'isComponentOf');
+            if (count($component_of) > 0) {
+                $query_pid = $component_of[0]['object']['value'];
+            }
+
+            // special processing if at a newspaper issue, newspaper page, book page, intermediate object, or isComponentOf
             if ((strpos($object_content_type, 'pageCModel'))||
                 (strpos($object_content_type, 'newspaperIssueCModel'))||
-                (strpos($object_content_type, 'newspaperPageCModel')))
+                (strpos($object_content_type, 'newspaperPageCModel'))||
+                (strpos($object_content_type, 'intermediateCModel'))||
+                (count($component_of) > 0))
             {
                 $query_book = 'select $parentObject $collection from <#ri>
                         where (

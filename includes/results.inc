@@ -679,6 +679,8 @@ class IslandoraSolrResults {
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
+      'info:fedora/islandora:rootSerialCModel' => 'Serial',
+      'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
     );
 
     if (isset($format_array[$hasModel])) {
@@ -1546,6 +1548,8 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
+      'info:fedora/islandora:rootSerialCModel' => 'Serial',
+      'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
     );
 
     if (isset($format_array[$hasModel])) {

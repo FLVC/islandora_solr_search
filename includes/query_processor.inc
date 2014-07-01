@@ -286,7 +286,8 @@ class IslandoraSolrQueryProcessor {
       $query = 'select $subject $content from <#ri>
                where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>
                     or $content <mulgara:is> <info:fedora/islandora:bookCModel> 
-                    or $content <mulgara:is> <info:fedora/islandora:newspaperCModel> or $content <mulgara:is> <info:fedora/islandora:newspaperIssueCModel>))
+                    or $content <mulgara:is> <info:fedora/islandora:newspaperCModel> or $content <mulgara:is> <info:fedora/islandora:newspaperIssueCModel>
+                    or $content <mulgara:is> <info:fedora/islandora:rootSerialCModel>))
                and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
                and $subject <fedora-rels-ext:isMemberOfCollection> $object)
                and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
@@ -311,6 +312,9 @@ class IslandoraSolrQueryProcessor {
           if (($result['content']['value'] == 'islandora:bookCModel')&&
               (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')))
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+          if (($result['content']['value'] == 'islandora:rootSerialCModel')&&
+              (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')))
+              $collections_filter = $collections_filter . 'parent_serial_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
       }
       $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection);
       $this->solrParams['fq'][] = trim($collections_filter);
@@ -318,10 +322,11 @@ class IslandoraSolrQueryProcessor {
 
     // remove page objects from dismax and edismax
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
-      //$this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
-      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
-      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
-      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperIssueCModel';
+      $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
+      $this->solrParams['fq'][] = '-RELS_EXT_isComponentOf_uri_ms:*';
+      //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
+      //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
+      //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperIssueCModel';
     }
 
     // Restrict results based on specified namespaces.
@@ -557,6 +562,8 @@ class IslandoraSolrQueryProcessor {
       'info:fedora/islandora:sp_pdf' => 'Document (PDF)',
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
+      'info:fedora/islandora:rootSerialCModel' => 'Serial',
+      'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
     );
 
     if (isset($format_array[$hasModel])) {
