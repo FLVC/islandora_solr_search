@@ -320,13 +320,17 @@ class IslandoraSolrQueryProcessor {
       $this->solrParams['fq'][] = trim($collections_filter);
     }
 
-    // remove page objects from dismax and edismax
+    // remove issue and page objects from dismax and edismax
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
       $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
       $this->solrParams['fq'][] = '-RELS_EXT_isComponentOf_uri_ms:*';
       //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
       //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
       //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperIssueCModel';
+    }
+    else {
+      // remove serial section objects from advanced searches - no mods
+      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:intermediateSerialCModelStub';
     }
 
     // Restrict results based on specified namespaces.
