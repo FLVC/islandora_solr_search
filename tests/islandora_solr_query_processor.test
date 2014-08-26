@@ -26,6 +26,7 @@ class IslandoraSolrQueryProcessorTestCase extends IslandoraWebTestCase {
    * @see IslandoraWebTestCase::setUp()
    */
   public function setUp() {
+    $this->solr_url = variable_get('islandora_solr_url', 'http://localhost:8080/solr');
     parent::setUp(array(
       'islandora_solr',
     ));
@@ -35,6 +36,13 @@ class IslandoraSolrQueryProcessorTestCase extends IslandoraWebTestCase {
    * Ingests an object and checks the Solr index for it via the query processor.
    */
   public function testSolrQueryProcessor() {
+
+    // Before we do anything, let's check if we're even connected to Solr.
+    $solr_avail = islandora_solr_ping($this->solr_url);
+    if (!$solr_avail) {
+      $this->fail(t("Unable to connect to Solr server at %solr_url.", array('%solr_url' => $this->solr_url)), 'Islandora');
+      return;
+    }
     $user = $this->drupalCreateUser(array_keys(module_invoke_all('permission')));
     $this->drupalLogin($user);
 
@@ -56,10 +64,10 @@ class IslandoraSolrQueryProcessorTestCase extends IslandoraWebTestCase {
     $ingest_time = microtime(TRUE);
 
     // And now to hammer Solr with the query processor until we find something!
-    // If it takes more than 1000 passes, well ... I've seen it take up to 600
+    // If it takes more than 10000 passes, well ... I've seen it take up to 600
     // before it gets indexed. I mean, Solr is bad sometimes, but not THAT bad.
     $i = 0;
-    while ($i <= 1000) {
+    while ($i <= 10000) {
       $query_processor->executeQuery();
       $i++;
       if (isset($query_processor->islandoraSolrResult['response']['objects'][0]['solr_doc'])) {
@@ -71,12 +79,12 @@ class IslandoraSolrQueryProcessorTestCase extends IslandoraWebTestCase {
           '%i' => $i,
           '%indexing_time' => $indexing_time,
         )), 'Islandora');
-        $i = 1001;
+        $i = 10001;
       }
-      elseif ($i == 1000) {
+      elseif ($i == 10000) {
         $completion_time = microtime(TRUE);
         $indexing_time = round($completion_time - $ingest_time, 3);
-        $this->fail(t("Solr doc for object %object_label (PID: %object_pid) not found in the index despite making 1000 passes (total query time: %indexing_time seconds).", array(
+        $this->fail(t("Solr doc for object %object_label (PID: %object_pid) not found in the index despite making 10000 passes (total query time: %indexing_time seconds).", array(
           '%object_label' => $object_label,
           '%object_pid' => $object_pid,
           '%indexing_time' => $indexing_time,

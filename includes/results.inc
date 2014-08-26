@@ -68,11 +68,10 @@ class IslandoraSolrResults {
     // Pager.
     islandora_solr_pager_init($elements['solr_total'], $islandora_solr_query->solrLimit);
     $elements['solr_pager'] = theme('pager', array(
-      NULL,
-      $islandora_solr_query->solrLimit,
-      0,
-      NULL,
-      5,
+      'tags' => NULL,
+      'element' => 0,
+      'parameters' => NULL,
+      'quantity' => 5,
     ));
 
     // Debug (will be removed).
@@ -347,7 +346,10 @@ class IslandoraSolrResults {
         $filter_string = $this->formatFilter($filter, $islandora_solr_query);
         // Increment filter array with current filter (for breadcrumb link).
         $query = array();
-        $query_diff = array_diff($params, array('f' => array()));
+        $query_diff = $params;
+        if (isset($query_diff['f'])) {
+          unset($query_diff['f']);
+        }
         $f = array_merge_recursive($f, array('f' => array($filter)));
         $query = array_merge($query_diff, $f);
 
@@ -406,8 +408,10 @@ class IslandoraSolrResults {
       // Get query value.
       $query_value = $islandora_solr_query->solrQuery;
       // Remove all filters for this breadcrumb.
-      $query = array();
-      $query = array_diff($params, array('f' => array()));
+      $query = $params;
+      if (isset($query['f'])) {
+        unset($query['f']);
+      }
       // Remove button keeps all parameters (query gets removed instead).
       $query_x = array();
       $query_x = $params;

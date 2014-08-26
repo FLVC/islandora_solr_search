@@ -26,6 +26,7 @@ class IslandoraSolrSimpleSearchTestCase extends IslandoraWebTestCase {
    * @see IslandoraWebTestCase::setUp()
    */
   public function setUp() {
+    $this->solr_url = variable_get('islandora_solr_url', 'http://localhost:8080/solr');
     parent::setUp(array(
       'islandora_solr',
     ));
@@ -35,6 +36,13 @@ class IslandoraSolrSimpleSearchTestCase extends IslandoraWebTestCase {
    * Ingests an object and datastream and checks the Solr index for it.
    */
   public function testSolrSimpleSearch() {
+
+    // Is Solr even available?
+    if (!islandora_solr_ping($this->solr_url)) {
+      $this->fail(t("Unable to connect to Solr server at %solr_url", array('%solr_url' => $this->solr_url)), 'Islandora');
+      return;
+    }
+
     $user = $this->drupalCreateUser(array_keys(module_invoke_all('permission')));
     $this->drupalLogin($user);
 
@@ -87,6 +95,7 @@ class IslandoraSolrSimpleSearchTestCase extends IslandoraWebTestCase {
 
     // And is it gone?
     $this->deleteObject($object_pid);
+    sleep(10);
     $this->drupalGet("islandora/search/" . $new_text, array('query' => $query));
     $this->assertText("Sorry, but your search returned no results.", t("After removing object %object_pid, its entry was no longer found in the Solr index.", array('%object_pid' => $object_pid)), 'Islandora');
   }

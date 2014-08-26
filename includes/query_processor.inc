@@ -125,7 +125,7 @@ class IslandoraSolrQueryProcessor {
       // So we can allow empty queries to dismax.
       $this->solrQuery = ' ';
       // Set base query.
-      $this->internalSolrQuery = variable_get('islandora_solr_base_query', 'timestamp:[* TO NOW]');
+      $this->internalSolrQuery = variable_get('islandora_solr_base_query', '*:*');
 
       // We must also undo dismax if it has been set.
       $this->solrDefType = NULL;
@@ -353,6 +353,11 @@ class IslandoraSolrQueryProcessor {
     // Invoke a hook for third-party modules to alter the parameters.
     // The hook implementation needs to specify that it takes a reference.
     module_invoke_all('islandora_solr_query', $this);
+    drupal_alter('islandora_solr_query', $this);
+
+    // Reset solrStart incase the number of results (ie. $this->solrLimit) is
+    // modified.
+    $this->solrStart = max(0, $start_page) * $this->solrLimit;
   }
 
   /**
@@ -408,11 +413,7 @@ class IslandoraSolrQueryProcessor {
           if (isset($object_result[$datastream_field])) {
             $object_results[$object_index]['datastreams'] = $object_result[$datastream_field];
           }
-          else {
-            watchdog('islandora_solr', 'The datastream Solr field is missing for @pid.', array(
-              '@pid' => $pid,
-            ));
-          }
+
           if (isset($object_result[$object_label])) {
             $object_label_value = $object_result[$object_label];
             $object_results[$object_index]['object_label'] = is_array($object_label_value) ? implode(", ", $object_label_value) : $object_label_value;
@@ -445,12 +446,7 @@ class IslandoraSolrQueryProcessor {
           // Hook to alter based on content model.
           module_load_include('inc', 'islandora', 'includes/utilities');
           foreach ($object_results as $object_index => $object_result) {
-            if (!isset($object_result['content_models'])) {
-              watchdog('islandora_solr', 'The content model Solr field is missing for @pid.', array(
-                '@pid' => $pid,
-              ));
-            }
-            else {
+            if (isset($object_result['content_models'])) {
               foreach ($object_result['content_models'] as $content_model_uri) {
                 // Regex out the info:fedora/ from the content model.
                 $cmodel_name = preg_replace('/info\:fedora\//', '', $content_model_uri, 1);
