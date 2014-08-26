@@ -902,6 +902,25 @@ function islandora_solr_metadata_search_form($form, &$form_state) {
   // Add terms.
   $form['terms'] = $terms;
 
+  $form['date1'] = array(
+      '#size' => '10',
+      '#type' => 'textfield',
+      '#title' => 'Created from date (YYYY-MM-DD):',
+      '#default_value' => isset($value['date1']) ? $value['date1'] : '',
+  );
+
+  $form['date2'] = array(
+      '#size' => '10',
+      '#type' => 'textfield',
+      '#title' => 'Created to date (YYYY-MM-DD):',
+      '#default_value' => isset($value['date2']) ? $value['date2'] : '',
+  );
+
+  $form['show_br'] = array(
+      '#type' => 'markup',
+      '#markup' => '<br>',
+  );
+
   $collection_options = array();
   $query_root = variable_get('islandora_repository_pid', 'islandora:root');
   $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
@@ -962,6 +981,7 @@ EOQ;
   $form['islandora_metadata_collection'] = array(
     '#type' => 'select',
     '#default_value' => '',
+    '#title' => 'In collection:',
     '#options' => $collection_options,
     '#default_value' => $collection_selected,
   );
@@ -1050,6 +1070,22 @@ function islandora_solr_metadata_search_form_submit($form, &$form_state) {
   if (isset($collection) && !empty($collection)) {
       //$query = array_merge($query, array('collection' => $collection));
       $params = array_merge($params, array('collection' => $collection));
+  }
+
+  $date1 = $form_state['values']['date1'];
+  $date2 = $form_state['values']['date2'];
+
+  if ((strlen($date1) > 0)&&(strlen($date2) > 0)) {
+      $date_filter = 'fgs_createdDate_dt:[' . $date1 . 'T00:00:00Z TO ' . $date2 . 'T00:00:00Z]';
+      $params = array_merge($params, array('f[0]' => $date_filter));
+  }
+  else if ((strlen($date1) == 0)&&(strlen($date2) > 0)) {
+      $date_filter = 'fgs_createdDate_dt:[* TO ' . $date2 . 'T00:00:00Z]';
+      $params = array_merge($params, array('f[0]' => $date_filter));
+  }
+  else if ((strlen($date1) > 0)&&(strlen($date2) == 0)) {
+      $date_filter = 'fgs_createdDate_dt:[' . $date1 . 'T00:00:00Z TO ' . date('Y-m-d') . 'T00:00:00Z]';
+      $params = array_merge($params, array('f[0]' => $date_filter));
   }
 
   //drupal_goto('islandora/search/' . $search_string, array('query' => $query));
@@ -1145,6 +1181,7 @@ EOQ;
 
   $form['browse_collection'] = array(
     '#type' => 'select',
+    '#title' => 'In collection:',
     '#options' => $collection_options,
     '#default_value' => $collection_selected,
   );
