@@ -338,8 +338,8 @@ class IslandoraSolrQueryProcessor {
       //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
       //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperIssueCModel';
     }
-    else {
-      // remove serial section objects from advanced searches - no mods
+    else if ((strstr($this->solrQuery, "catch_all_foxml_text_mt") != NULL)||(strstr($this->solrQuery, "catch_all_fields_mt") != NULL)) {
+      // remove serial section objects from advanced search - no mods
       $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:intermediateSerialCModelStub';
     }
 
