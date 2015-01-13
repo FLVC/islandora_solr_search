@@ -841,13 +841,13 @@ function islandora_solr_metadata_search_form($form, &$form_state) {
       '#size' => '45',
       '#type' => 'textfield',
       '#title' => 'Search Solr field',
-      '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
+      '#autocomplete_path' => 'islandora_solr/autocomplete_text_fields',
       '#default_value' => isset($value['field']) ? $value['field'] : '',
     );
     $term['search'] = array(
       '#size' => '20',
       '#type' => 'textfield',
-      '#title' => 'Term Match for *_mt, Phrase Match for *_ms',
+      '#title' => '',
       '#default_value' => isset($value['search']) ? $value['search'] : '',
     );
     // Used for when the user presses enter on the search field.
@@ -1161,8 +1161,8 @@ EOQ;
     $form['browse_field'] = array(
       '#size' => '45',
       '#type' => 'textfield',
-      '#title' => 'Browse Solr field (use field ending with _ms)',
-      '#autocomplete_path' => 'islandora_solr/autocomplete_luke',
+      '#title' => 'Browse Solr field',
+      '#autocomplete_path' => 'islandora_solr/autocomplete_string_fields',
       '#default_value' => isset($form_state['values']['browse_field']) ? $form_state['values']['browse_field'] : '',
     );
 
@@ -1188,6 +1188,11 @@ EOQ;
     '#default_value' => $collection_selected,
   );
 
+  $form['browse_ignore_case'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Ignore case?',
+  );
+
   // Add controls.
   $form['controls'] = array(
     '#type' => 'markup',
@@ -1204,9 +1209,14 @@ EOQ;
 
 function islandora_solr_metadata_browse_form_submit($form, &$form_state) {
 
+  $solrfield = $form_state['values']['browse_field'];
+  if ($form_state['values']['browse_ignore_case']) {
+    $solrfield = str_replace('_ms','_mls',$solrfield);
+  }
+
   // set query
   $query = array(
-    'solrfield' => $form_state['values']['browse_field'],
+    'solrfield' => $solrfield,
     'sort' => $form_state['values']['browse_sort'],
     'pagesize' => $form_state['values']['browse_rows'],
   );
