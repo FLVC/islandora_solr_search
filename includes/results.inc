@@ -685,6 +685,8 @@ class IslandoraSolrResults {
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
       'info:fedora/islandora:rootSerialCModel' => 'Serial',
       'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
+      'info:fedora/ir:citationCModel' => 'Citation',
+      'info:fedora/ir:thesisCModel' => 'Thesis',
     );
 
     if (isset($format_array[$hasModel])) {
@@ -1555,6 +1557,8 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
       'info:fedora/islandora:rootSerialCModel' => 'Serial',
       'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
+      'info:fedora/ir:citationCModel' => 'Citation',
+      'info:fedora/ir:thesisCModel' => 'Thesis',
     );
 
     if (isset($format_array[$hasModel])) {

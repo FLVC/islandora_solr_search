@@ -330,6 +330,9 @@ class IslandoraSolrQueryProcessor {
       $this->solrParams['fq'][] = trim($collections_filter);
     }
 
+    // remove collection objects from all searches
+    $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:collectionCModel';
+
     // remove issue and page objects from dismax and edismax
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
       $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
@@ -574,6 +577,8 @@ class IslandoraSolrQueryProcessor {
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
       'info:fedora/islandora:rootSerialCModel' => 'Serial',
       'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
+      'info:fedora/ir:citationCModel' => 'Citation',
+      'info:fedora/ir:thesisCModel' => 'Thesis',
     );
 
     if (isset($format_array[$hasModel])) {
