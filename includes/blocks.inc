@@ -1035,7 +1035,7 @@ function islandora_solr_metadata_search_form_submit($form, &$form_state) {
   // Collect query values.
   $query_array = array();
   foreach ($form_state['values']['terms'] as $term) {
-    $field = $term['field'];
+    $field = str_replace('.','_',$term['field']) . '_mt';
     $search = trim($term['search']);
     // XXX: Should probably use islandora_solr_replace_slashes().
     $search = str_replace('/', '~slsh~', $search);
@@ -1209,7 +1209,7 @@ EOQ;
 
 function islandora_solr_metadata_browse_form_submit($form, &$form_state) {
 
-  $solrfield = $form_state['values']['browse_field'];
+  $solrfield = str_replace('.','_',$form_state['values']['browse_field']) . '_ms';
   if ($form_state['values']['browse_ignore_case']) {
     $solrfield = str_replace('_ms','_mls',$solrfield);
   }
