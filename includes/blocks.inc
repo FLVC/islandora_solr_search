@@ -735,7 +735,8 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
   }
 
   // Navigate to results page.
-  $form_state['redirect'] = ISLANDORA_SOLR_SEARCH_PATH . "/$query";
+  //$form_state['redirect'] = ISLANDORA_SOLR_SEARCH_PATH . "/$query";
+  drupal_goto('islandora/search/' . $query, array('query' => $params));
 }
 
 function islandora_solr_metadata_search_form($form, &$form_state) {
