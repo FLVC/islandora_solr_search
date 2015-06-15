@@ -684,7 +684,7 @@ class IslandoraSolrResults {
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
       'info:fedora/islandora:rootSerialCModel' => 'Serial',
-      'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
+      'info:fedora/islandora:intermediateCModel' => 'Serial component',
       'info:fedora/ir:citationCModel' => 'Citation',
       'info:fedora/ir:thesisCModel' => 'Thesis',
     );
@@ -1556,7 +1556,7 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
       'info:fedora/islandora:rootSerialCModel' => 'Serial',
-      'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
+      'info:fedora/islandora:intermediateCModel' => 'Serial component',
       'info:fedora/ir:citationCModel' => 'Citation',
       'info:fedora/ir:thesisCModel' => 'Thesis',
     );

@@ -294,10 +294,13 @@ class IslandoraSolrQueryProcessor {
       $collections_filter = '';
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
       $query = 'select $subject $content from <#ri>
-               where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>
-                    or $content <mulgara:is> <info:fedora/islandora:bookCModel> 
-                    or $content <mulgara:is> <info:fedora/islandora:newspaperCModel> or $content <mulgara:is> <info:fedora/islandora:newspaperIssueCModel>
-                    or $content <mulgara:is> <info:fedora/islandora:rootSerialCModel>))
+               where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>';
+      if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
+         $query .= 'or $content <mulgara:is> <info:fedora/islandora:bookCModel> 
+                    or $content <mulgara:is> <info:fedora/islandora:newspaperCModel>
+                    or $content <mulgara:is> <info:fedora/islandora:rootSerialCModel>';
+      }
+      $query .= '))
                and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
                and $subject <fedora-rels-ext:isMemberOfCollection> $object)
                and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
@@ -307,15 +310,8 @@ class IslandoraSolrQueryProcessor {
           if ($result['content']['value'] == 'islandora:collectionCModel')
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
           if ($result['content']['value'] == 'islandora:newspaperCModel') {
-              $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+              //$collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
               if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
-                //$issue_search_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
-                //$issue_search_query = 'select $issue from <#ri> where $issue <fedora-rels-ext:isMemberOf> <info:fedora/' . $result['subject']['value'] . '>
-                //                       and $issue <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
-                //$issue_search_results = $issue_search_object->repository->ri->itqlQuery($issue_search_query, 'unlimited');
-                //foreach ($issue_search_results as $issue_search_result) {
-                //    $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $issue_search_result['issue']['value']) . ' OR ';
-                //}
                 $collections_filter = $collections_filter . 'parent_newspaper_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
               }
           }
@@ -576,7 +572,7 @@ class IslandoraSolrQueryProcessor {
       'info:fedora/islandora:sp_videoCModel' => 'Video file',
       'info:fedora/islandora:binaryObjectCModel' => 'Downloadable file',
       'info:fedora/islandora:rootSerialCModel' => 'Serial',
-      'info:fedora/islandora:intermediateSerialCModel' => 'Serial component',
+      'info:fedora/islandora:intermediateCModel' => 'Serial component',
       'info:fedora/ir:citationCModel' => 'Citation',
       'info:fedora/ir:thesisCModel' => 'Thesis',
     );
