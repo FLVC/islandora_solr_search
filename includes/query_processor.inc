@@ -283,22 +283,26 @@ class IslandoraSolrQueryProcessor {
       $this->solrParams['fq'] = $base_filters;
     }
 
+    $fromAdvsrch = (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax'));
+
     // Restrict results based on collection
     $site_root = variable_get('islandora_repository_pid', 'islandora:root');
     if ((isset($this->internalSolrParams['collection']))&&($this->internalSolrParams['collection'] != $site_root))
     {
-//      $this->solrParams['fq'][] = 'parent_collection_id_ms:info\:fedora/' . str_replace(':', '\:', $this->internalSolrParams['collection']);
       $collection = $this->internalSolrParams['collection'];
-//      $collections_filter = 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ';
-//      $collections_filter = 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection) . ' ';
       $collections_filter = '';
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
       $query = 'select $subject $content from <#ri>
                where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>';
-      if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
-         $query .= 'or $content <mulgara:is> <info:fedora/islandora:bookCModel> 
-                    or $content <mulgara:is> <info:fedora/islandora:newspaperCModel>
+      // if non-empty search or advanced search, RI query includes newspaper issues and serial issues
+      if (($this->solrQuery != ' ')||($fromAdvsrch)) {
+         $query .= 'or $content <mulgara:is> <info:fedora/islandora:newspaperCModel>
                     or $content <mulgara:is> <info:fedora/islandora:rootSerialCModel>';
+      }
+      //if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
+      // if full text search, RI query includes books
+      if ((strstr($this->solrQuery, "catch_all_fulltext_mt"))||(strstr($this->solrQuery, "catch_all_foxml_text_mt"))) {
+         $query .= 'or $content <mulgara:is> <info:fedora/islandora:bookCModel>';
       }
       $query .= '))
                and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
@@ -306,21 +310,18 @@ class IslandoraSolrQueryProcessor {
                and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
       $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
       foreach ($results as $result) {
-//        $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ' . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' ';
-          if ($result['content']['value'] == 'islandora:collectionCModel')
+          if ($result['content']['value'] == 'islandora:collectionCModel') {
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
-          if ($result['content']['value'] == 'islandora:newspaperCModel') {
-              //$collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
-              if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
-                $collections_filter = $collections_filter . 'parent_newspaper_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
-              }
           }
-          if (($result['content']['value'] == 'islandora:bookCModel')&&
-              (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')))
+          else if ($result['content']['value'] == 'islandora:newspaperCModel') {
+            $collections_filter = $collections_filter . 'parent_newspaper_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+          }
+          else if ($result['content']['value'] == 'islandora:bookCModel') {
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOf_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
-          if (($result['content']['value'] == 'islandora:rootSerialCModel')&&
-              (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')))
+          }
+          else if ($result['content']['value'] == 'islandora:rootSerialCModel') {
               $collections_filter = $collections_filter . 'parent_serial_id_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
+          }
       }
       $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $collection);
       $this->solrParams['fq'][] = trim($collections_filter);
@@ -329,13 +330,17 @@ class IslandoraSolrQueryProcessor {
     // remove collection objects from all searches
     $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:collectionCModel';
 
-    // remove issue and page objects from dismax and edismax
+    // simple search filters
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
-      $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
-      $this->solrParams['fq'][] = '-RELS_EXT_isComponentOf_uri_ms:*';
-      //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
-      //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
-      //$this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperIssueCModel';
+      //$this->solrParams['fq'][] = '-RELS_EXT_isComponentOf_uri_ms:*';
+      if ($this->solrQuery == ' ') {
+        $this->solrParams['fq'][] = '-RELS_EXT_isMemberOf_uri_ms:*';
+        $this->solrParams['fq'][] = '-RELS_EXT_isComponentOf_uri_ms:*';
+      }
+      else {
+        $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:pageCModel';
+        $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:newspaperPageCModel';
+      }
     }
     else if ((strstr($this->solrQuery, "catch_all_foxml_text_mt") != NULL)||(strstr($this->solrQuery, "catch_all_fields_mt") != NULL)) {
       // remove serial section objects from advanced search - no mods
