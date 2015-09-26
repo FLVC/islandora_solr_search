@@ -267,6 +267,16 @@ class IslandoraSolrQueryProcessor {
     // Set base filters.
     $base_filters = preg_split("/\\r\\n|\\n|\\r/", variable_get('islandora_solr_base_filter', ''), -1, PREG_SPLIT_NO_EMPTY);
 
+    // temporary fix to not enforce site filter for full text searches from PALMM with collection specified
+    // child page objects still need to be reindexed to update their site information
+    // when finished, remove this code and use site filter for all searches
+    $site_root = variable_get('islandora_repository_pid', 'islandora:root');
+    $fulltextSrch = ((strstr($this->solrQuery, "catch_all_fulltext_mt"))||(strstr($this->solrQuery, "catch_all_foxml_text_mt")));
+    $fulltextFromPalmm = (($site_root == 'palmm:root')&&($fulltextSrch));
+    if ((isset($this->internalSolrParams['collection']))&&($fulltextFromPalmm)) {
+      $base_filters = preg_split("/\\r\\n|\\n|\\r/", '', -1, PREG_SPLIT_NO_EMPTY);
+    }
+
     // Adds ability for modules to include facets which will not show up in
     // breadcrumb trail.
     if (isset($params['hidden_filter'])) {
@@ -284,10 +294,12 @@ class IslandoraSolrQueryProcessor {
     }
 
     $fromAdvsrch = (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax'));
+    //$fulltextSrch = ((strstr($this->solrQuery, "catch_all_fulltext_mt"))||(strstr($this->solrQuery, "catch_all_foxml_text_mt")));
 
     // Restrict results based on collection
-    $site_root = variable_get('islandora_repository_pid', 'islandora:root');
-    if ((isset($this->internalSolrParams['collection']))&&($this->internalSolrParams['collection'] != $site_root))
+    //$site_root = variable_get('islandora_repository_pid', 'islandora:root');
+
+    if ((isset($this->internalSolrParams['collection']))&&(($this->internalSolrParams['collection'] != $site_root)||($fulltextFromPalmm)))
     {
       $collection = $this->internalSolrParams['collection'];
       $collections_filter = '';
