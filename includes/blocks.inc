@@ -439,7 +439,11 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
       $collection_options = array_merge($collection_options, array($collection_selected => $collection_title));
   }
 
-  $collection_options = array_merge($collection_options, array('' => t('All Collections')));
+  $all_collections_value = '';
+  if ($query_root == 'palmm:root') {
+    $all_collections_value = 'palmm:root';
+  }
+  $collection_options = array_merge($collection_options, array($all_collections_value => t('All Collections')));
 
 /*
   $query = 'select $subject $title from <#ri>
