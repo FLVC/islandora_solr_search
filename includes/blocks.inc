@@ -168,6 +168,7 @@ function islandora_solr_simple_search_form($form, &$form_state) {
 
   $collection_selected = isset($_GET['collection']) ? $_GET['collection'] : '';
   if (!empty($collection_selected)) {
+      $collection_title = '';
       $query_pid = $collection_selected;
       //$collection_options = array_merge($collection_options, array($collection_id => $collection_title));
       $titlequery = 'select $title from <#ri>
