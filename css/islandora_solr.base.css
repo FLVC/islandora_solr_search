@@ -49,6 +49,10 @@ ul#secondary-display-profiles
   margin-right: 10px;
 }
 
+#islandora-solr-advanced-search-form div.form-item-islandora-solr-allow-preserve-filters {
+  display: block;
+}
+
 /* metadata search block */
 
 #islandora-solr-metadata-search-form div.form-item {
@@ -78,4 +82,3 @@ section#block-islandora-solr-browse
   padding: 20px 20px 0px 20px;
   border-radius: 6px 6px 6px 6px;
 }
-

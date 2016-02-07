@@ -36,42 +36,53 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
 
     // Get request handler.
     $handler = !empty($form_state['values']['islandora_solr_request_handler']) ? $form_state['values']['islandora_solr_request_handler'] : variable_get('islandora_solr_request_handler', FALSE);
-    // Check if Solr is available.
-    $solr_avail = islandora_solr_ping($solr_url);
 
-    $dismax_allowed = FALSE;
-    // If solr is available, get the request handlers.
-    if ($solr_avail) {
-      // Find request handlers (~500ms).
-      $handlers = _islandora_solr_get_handlers($solr_url);
-    }
-    // Get confirmation message.
-    if ($solr_avail) {
-      $confirmation_message = format_string('<img src="@image_url"/>!message', array(
-        // XXX: Use of url() for static image may result in broken images.
-        '@image_url' => url('misc/watchdog-ok.png'),
-        '!message' => t('Successfully connected to Solr server at !link. <sub>(!ms ms)</sub>', array(
-            '!link' => l($solr_url, islandora_solr_check_http($solr_url), array(
-              'attributes' => array(
-                'target' => '_blank',
-              ),
-            )),
-            '!ms' => number_format($solr_avail, 2),
-        )),
-      ));
-    }
-    else {
+    if (strpos($solr_url, 'https://') !== FALSE && strpos($solr_url, 'https://') == 0) {
       $confirmation_message = format_string('<img src="@image_url"/>!message', array(
         // XXX: Use of url() for static image may result in broken images.
         '@image_url' => url('misc/watchdog-error.png'),
-        '!message' => t('Unable to connect to Solr server at !link.', array(
-            '!link' => l($solr_url, islandora_solr_check_http($solr_url), array(
-              'attributes' => array(
-                'target' => '_blank',
-              ),
-            )),
-        )),
+        '!message' => t('Islandora does not support SSL connections to Solr.'),
       ));
+      $solr_avail = FALSE;
+    }
+    else {
+      // Check if Solr is available.
+      $solr_avail = islandora_solr_ping($solr_url);
+
+      $dismax_allowed = FALSE;
+      // If solr is available, get the request handlers.
+      if ($solr_avail) {
+        // Find request handlers (~500ms).
+        $handlers = _islandora_solr_get_handlers($solr_url);
+      }
+      // Get confirmation message.
+      if ($solr_avail) {
+        $confirmation_message = format_string('<img src="@image_url"/>!message', array(
+          // XXX: Use of url() for static image may result in broken images.
+          '@image_url' => url('misc/watchdog-ok.png'),
+          '!message' => t('Successfully connected to Solr server at !link. <sub>(!ms ms)</sub>', array(
+              '!link' => l($solr_url, islandora_solr_check_http($solr_url), array(
+                'attributes' => array(
+                  'target' => '_blank',
+                ),
+              )),
+              '!ms' => number_format($solr_avail, 2),
+          )),
+        ));
+      }
+      else {
+        $confirmation_message = format_string('<img src="@image_url"/>!message', array(
+          // XXX: Use of url() for static image may result in broken images.
+          '@image_url' => url('misc/watchdog-error.png'),
+          '!message' => t('Unable to connect to Solr server at !link.', array(
+              '!link' => l($solr_url, islandora_solr_check_http($solr_url), array(
+                'attributes' => array(
+                  'target' => '_blank',
+                ),
+              )),
+          )),
+        ));
+      }
     }
   }
   // AJAX wrapper for URL checking.
@@ -133,6 +144,15 @@ function islandora_solr_admin_index_settings($form, &$form_state) {
     '#value' => $solr_avail ? 1 : 0,
   );
 
+  // Solr force delete from index during object purge.
+  $form['solr_ajax_wrapper']['islandora_solr_force_update_index_after_object_purge'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Force update of Solr index after an object is deleted'),
+    '#weight' => 5,
+    '#description' => t('If checked, deleting objects will also force their removal from the Solr index. <br/><strong>Note:</strong> When active, UI consistency will be increased on any pages using Solr queries for display. This setting is not appropriate for every installation (e.g., on sites with a large volume of Solr commits that hit execution limits, or where the Solr index is not directly writable from Drupal).'),
+    '#default_value' => variable_get('islandora_solr_force_update_index_after_object_purge', 0),
+  );
+
   // Actions.
   $form['actions'] = array(
     '#type' => 'actions',
@@ -179,12 +199,14 @@ function _islandora_solr_admin_index_settings_submit($form, &$form_state) {
     case 'edit-submit':
       variable_set('islandora_solr_url', $form_state['values']['islandora_solr_url']);
       variable_set('islandora_solr_request_handler', $form_state['values']['islandora_solr_request_handler']);
+      variable_set('islandora_solr_force_update_index_after_object_purge', $form_state['values']['islandora_solr_force_update_index_after_object_purge']);
       drupal_set_message(t('The Solr configuration options have been saved.'));
       break;
 
     case 'edit-reset':
       variable_del('islandora_solr_url');
       variable_del('islandora_solr_request_handler');
+      variable_del('islandora_solr_force_update_index_after_object_purge');
       drupal_set_message(t('The configuration options have been reset to their default values.'));
       break;
   }
@@ -373,6 +395,12 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#description' => t('The number of results to show per page.'),
     '#default_value' => variable_get('islandora_solr_num_of_results', '20'),
   );
+  $form['islandora_solr_tabs']['default_display_settings']['islandora_solr_search_navigation'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable search navigation block'),
+    '#description' => t('Add navigation params to object links.'),
+    '#default_value' => variable_get('islandora_solr_search_navigation', FALSE),
+  );
 
   // Sort settings.
   $form['islandora_solr_tabs']['sort'] = array(
@@ -488,6 +516,12 @@ function islandora_solr_admin_settings($form, &$form_state) {
     ),
     '#description' => t('Select a default boolean operator for the search query. Selecting "User-configurable" exposes a dropdown menu which gives the user a choice between AND, OR and NOT.'),
   );
+  $form['islandora_solr_tabs']['advanced_search_block']['islandora_solr_allow_preserve_filters'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow Preservation of Filters'),
+    '#default_value' => variable_get('islandora_solr_allow_preserve_filters', FALSE),
+    '#description' => t('Allow users to preserve filters when changing their search.'),
+  );
 
   // Query defaults.
   $form['islandora_solr_tabs']['query_defaults'] = array(
@@ -497,9 +531,8 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#collapsed' => TRUE,
   );
   $form['islandora_solr_tabs']['query_defaults']['islandora_solr_namespace_restriction'] = array(
-    '#type' => 'textfield',
+    '#type' => 'textarea',
     '#title' => t('Limit results to specific namespaces'),
-    '#size' => 30,
     '#default_value' => variable_get('islandora_solr_namespace_restriction', ''),
     '#description' => t("Enter a space- or comma-separated list of namespaces (e.g. 'demo, default') to restrict results to PIDs within those namespaces."),
   );
@@ -510,14 +543,17 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#description' => t('A default query used to browse Solr results when no explicit user query is set.
       Setting a useful default query allows the use of Solr to browse without having to enter a query.
       This may be used in conjunction with a background filter below.<br />
-      Consider using <strong>timestamp:[* TO NOW]</strong> or <strong>*:*</strong><br />'),
+      Consider using <strong>fgs_createdDate_dt:[* TO NOW]</strong> or <strong>*:*</strong><br />'),
     '#default_value' => variable_get('islandora_solr_base_query', '*:*'),
   );
   $form['islandora_solr_tabs']['query_defaults']['islandora_solr_base_sort'] = array(
     '#type' => 'textfield',
     '#title' => t('Sort field for default query'),
     '#size' => 30,
-    '#description' => t('Indicates which field should define the sort order for the default query.<br />For example: <strong>timestamp desc</strong>.<br /><strong>Note:</strong> not all fields are sortable. For more information, check the <a href="!url">Solr documentation</a>.', array('!url' => 'http://wiki.apache.org/solr/CommonQueryParameters#sort')),
+    '#description' => t('Indicates which field should define the sort order for the default query.<br />
+    For example: <strong>fgs_createdDate_dt desc</strong>.<br /><strong>Note:</strong> only single-valued fields are sortable.
+    For more information, check the <a href="!url">Solr documentation</a>.',
+      array('!url' => 'http://wiki.apache.org/solr/CommonQueryParameters#sort')),
     '#default_value' => variable_get('islandora_solr_base_sort', ''),
   );
   $form['islandora_solr_tabs']['query_defaults']['islandora_solr_base_filter'] = array(
@@ -1518,6 +1554,11 @@ function _islandora_solr_handle_solr_field_settings($solr_field_settings = NULL,
           'link_rendering' => $solr_field_settings['link_rendering'],
           'snippet' => isset($solr_field_settings['snippet']) ? $solr_field_settings['snippet'] : NULL,
           'date_format' => isset($solr_field_settings['date_format']) ? trim($solr_field_settings['date_format']) : '',
+          'truncation_type' => isset($solr_field_settings['truncation_type']) ? trim($solr_field_settings['truncation_type']) : 'separate_value_option',
+          'maximum_length' => isset($solr_field_settings['maximum_length']) ? trim($solr_field_settings['maximum_length']) : '',
+          'add_ellipsis' => isset($solr_field_settings['add_ellipsis']) ? $solr_field_settings['add_ellipsis'] : FALSE,
+          'wordsafe' => isset($solr_field_settings['wordsafe']) ? $solr_field_settings['wordsafe'] : FALSE,
+          'wordsafe_length' => isset($solr_field_settings['wordsafe_length']) ? $solr_field_settings['wordsafe_length'] : 1,
           'permissions' => empty($solr_field_settings['enable_permissions']) ? FALSE : $solr_field_settings['permissions'],
         );
         break;
@@ -1542,6 +1583,7 @@ function _islandora_solr_handle_solr_field_settings($solr_field_settings = NULL,
           'range_facet_slider_color',
           'date_filter_datepicker_enabled',
           'date_filter_datepicker_range',
+          'pid_object_label',
         ));
         $relevant_values = array_intersect_key($solr_field_settings, $fields);
         $relevant_values['label'] = isset($relevant_values['label']) ?
@@ -1732,6 +1774,62 @@ function islandora_solr_admin_settings_result_fields($form, &$form_state, $varia
       '#description' => t('The format of the date, as it will be displayed in the search results. Use <a href="!url" target="_blank">PHP date()</a> formatting.', array('!url' => 'http://php.net/manual/function.date.php')),
     );
   }
+
+  $form['options']['max_length_fieldset'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Maximum Length'),
+    '#description' => t('<strong>Note:</strong> Truncation can lead to unexpected results when used in secondary display profiles such as CSV and RSS.'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    'truncation_type' => array(
+      '#type' => 'radios',
+      '#title' => t('Truncation Type'),
+      '#options' => array('separate_value_option' => t('Limit length of each separate value'), 'whole_field_option' => t('Limit Length of the whole field')),
+      '#default_value' => isset($values['truncation_type']) ? $values['truncation_type'] : 'separate_value_option',
+    ),
+    'maximum_length' => array(
+      '#type' => 'textfield',
+      '#title' => t('Maximum Length'),
+      '#default_value' => isset($values['maximum_length']) ? $values['maximum_length'] : '0',
+      '#element_validate' => array('element_validate_integer'),
+      '#description' => t('Maximum field length to render for display. A setting of 0 (default) renders the entire value.<br /> When truncating based on the whole field the max length may be exceeded by the length of ellispse string.'),
+    ),
+    'add_ellipsis' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Add Ellipsis'),
+      '#description' => t('Add ... to the end of the truncated string.'),
+      '#default_value' => isset($values['add_ellipsis']) ? $values['add_ellipsis'] : FALSE,
+      '#states' => array(
+        'invisible' => array(
+          ':input[name="maximum_length"]' => array('value' => '0'),
+        ),
+      ),
+    ),
+    'wordsafe' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Wordsafe'),
+      '#description' => t('If selected attempt to truncate on a word boundary. See <a href="!url" target="_blank".>documentation</a> for more information.', array('!url' => 'https://api.drupal.org/api/drupal/includes!unicode.inc/function/truncate_utf8/7')),
+      '#default_value' => isset($values['wordsafe']) ? $values['wordsafe'] : FALSE,
+      '#states' => array(
+        'invisible' => array(
+          ':input[name="maximum_length"]' => array('value' => '0'),
+        ),
+      ),
+    ),
+    'wordsafe_length' => array(
+      '#type' => 'textfield',
+      '#title' => t('Minimum Wordsafe Length'),
+      '#description' => t('The minimum acceptable length for truncation.'),
+      '#states' => array(
+        'invisible' => array(
+          array(':input[name="maximum_length"]' => array('value' => '0')),
+          array(':input[name="wordsafe"]' => array('checked' => FALSE)),
+        ),
+      ),
+      '#default_value' => isset($values['wordsafe_length']) ? $values['wordsafe_length'] : 1,
+    ),
+  );
+
   islandora_solr_append_permissions_and_actions($values, $form);
 
   return $form;
@@ -1787,11 +1885,6 @@ function islandora_solr_admin_settings_search_or_sort_fields($form, &$form_state
   $form_state['dialog'] = $variables;
 
   $values = $variables['values'];
-  $permissions = isset($values['permissions']) ? $values['permissions'] : array();
-
-  $permissions_disable = _islandora_solr_permissions_disable();
-  $permissions_default = _islandora_solr_permissions_default();
-
   $form['options'] = array(
     '#type' => 'container',
     '#attributes' => array('class' => array('scroll')),
@@ -1803,44 +1896,7 @@ function islandora_solr_admin_settings_search_or_sort_fields($form, &$form_state
     '#default_value' => isset($values['label']) ? $values['label'] : '',
     '#description' => t('A human-readable name.'),
   );
-  $form['options']['permissions_fieldset'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Permissions'),
-    '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
-  );
-  $form['options']['permissions_fieldset']['permissions'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Permissions'),
-    '#options' => user_roles(),
-    '#default_value' => !empty($permissions) ? $permissions : $permissions_default,
-    '#description' => t('Select which roles can access this field.<br /><strong>Note:</strong> checkboxes may be grayed out for roles which do not have permission to search the Solr index.'),
-  );
-  foreach ($permissions_disable as $rid) {
-    $form['options']['permissions_fieldset']['permissions'][$rid] = array(
-      '#disabled' => TRUE,
-    );
-  }
-  $form['actions'] = array(
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-buttons')),
-  );
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Apply'),
-    '#weight' => 5,
-    '#field' => 'dialog_submit',
-    '#field_type' => 'result_fields',
-    '#name' => 'result-fields-dialog-submit',
-    '#submit' => array('_islandora_solr_update_fields_submit'),
-    '#ajax' => array(
-      'callback' => '_islandora_solr_admin_settings_dialog',
-      'wrapper' => 'islandora-solr-admin-dialog-form',
-      'effect' => 'none',
-      'event' => 'click',
-      'progress' => array('message' => '', 'type' => 'throbber'),
-    ),
-  );
+  islandora_solr_append_permissions_and_actions($values, $form);
   return $form;
 }
 
@@ -1999,6 +2055,15 @@ function islandora_solr_admin_settings_facet_fields($form, &$form_state, $variab
 
   // Permissions.
   islandora_solr_append_permissions_and_actions($values, $form);
+
+  $form['options']['pid_object_label'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Object Label'),
+    '#return_value' => 1,
+    '#default_value' => (isset($values['pid_object_label']) ? $values['pid_object_label'] : 0),
+    '#description' => t('Replace PID with object Label.'),
+  );
+
   return $form;
 }
 

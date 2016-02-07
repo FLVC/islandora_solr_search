@@ -78,6 +78,22 @@ function islandora_solr_islandora_solr_query_blocks() {
       'function' => 'islandora_solr_sort',
       'form' => NULL,
     ),
+    'explore' => array(
+      'name' => t('Islandora explore'),
+      'module' => 'islandora_solr',
+      'file' => 'includes/explore.inc',
+      'class' => NULL,
+      'function' => 'islandora_solr_explore_generate_links',
+      'form' => NULL,
+    ),
+    'search_navigation' => array(
+      'name' => t('Islandora search navigation'),
+      'module' => 'islandora_solr',
+      'file' => 'includes/blocks.inc',
+      'class' => NULL,
+      'function' => 'islandora_solr_search_navigation',
+      'form' => NULL,
+    ),
   );
 }
 
@@ -98,6 +114,256 @@ function islandora_solr_block_info() {
   return $blocks;
 }
 
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Currently checks for delta of explore and modifies the form to add custom
+ * configuration options to setup facet display filters to be rendered.
+ */
+function islandora_solr_form_BLOCK_ADMIN_CONFIGURE_alter(&$form, &$form_state) {
+  if ($form['module']['#value'] == 'islandora_solr' && $form['delta']['#value'] == 'explore') {
+    // Get the variables for the form display facets.
+    $expore_config = (isset($form_state['islandora_solr_facet_filters']) ? $form_state['islandora_solr_facet_filters'] : variable_get('islandora_solr_explore_config', array()));
+
+    // Check if remove was clicked and removed the label and filter from the
+    // values and the table.
+    if (isset($form_state['triggering_element']) && $form_state['triggering_element']['#value'] == t('Remove selected')) {
+      foreach ($form_state['values']['table'] as $key => $row) {
+        if (!empty($row)) {
+          // Get selected row index.
+          $row_index = str_replace("facet-row-", "", $key);
+          // Unset the index to keep the other keys the same.
+          unset($expore_config[$row_index]);
+        }
+      }
+      $form_state['islandora_solr_facet_filters'] = $expore_config;
+    }
+
+    // Check if weights are being updated.
+    if (isset($form_state['triggering_element']) && $form_state['triggering_element']['#value'] == t('Update weights') && !empty($expore_config)) {
+      // Note: select_weight is only in the $form_state['input'] and doesn't
+      // exist in $form_state['values'].
+      $selected_weights = $form_state['input']['select_weight'];
+      foreach ($selected_weights as $index => $weight) {
+        $expore_config[$index]['weight'] = $weight;
+      }
+      // Sort config array by weight and update drupal variable.
+      uasort($expore_config, 'drupal_sort_weight');
+      $form_state['islandora_solr_facet_filters'] = $expore_config;
+    }
+
+    // Check if new display facet is being added to the table.
+    if (isset($form_state['triggering_element']) && $form_state['triggering_element']['#id'] == 'facet-filter-add-more') {
+      $duplicate_label = FALSE;
+      $duplicate_filter = FALSE;
+      $duplicate = FALSE;
+      $facet_label = $form_state['values']['label'];
+      $facet_filter = $form_state['values']['filter'];
+      $facet_weight = $form_state['values']['facet_weight'];
+
+      if (empty($facet_filter)) {
+        form_set_error('filter', t('Facet Filter is required to add a display facet.'));
+      }
+
+      if (empty($facet_label)) {
+        form_set_error('label', t('Display Label is required to add a display facet.'));
+      }
+
+      if (!empty($facet_label) && !empty($expore_config)) {
+        foreach ($expore_config as $row) {
+          if ($row['label'] == $facet_label) {
+            // Label exists return form error.
+            $duplicate_label = TRUE;
+            break;
+          }
+          elseif ($row['filter'] == $facet_filter) {
+            // Facet filter exists return form error.
+            $duplicate_filter = TRUE;
+            break;
+          }
+        }
+        if ($duplicate_label) {
+          form_set_error('label', t('Display Label must be unique.'));
+          $duplicate = TRUE;
+        }
+        elseif ($duplicate_filter) {
+          form_set_error('filter', t('Facet Filter must be unique.'));
+          $duplicate = TRUE;
+        }
+      }
+      if (!empty($facet_label) && !empty($facet_filter) && !$duplicate) {
+        // Before it's added try to run the facet query and see if it's valid.
+        $facet_is_valid = TRUE;
+
+        if (!empty($facet_filter)) {
+          module_load_include('inc', 'islandora_solr', 'includes/explore');
+
+          // Store current messages.
+          $old_msg = drupal_get_messages();
+
+          // Clear current error messages.
+          drupal_get_messages('error', TRUE);
+
+          // Run a facet query on the supplied filter.
+          islandora_solr_explore_test_facet_query($facet_filter);
+
+          // Clear error messages run facet query and check if there are any
+          // error messages.  If there are error messages assume that the query
+          // failed and set facet to invalid.
+          $error_msgs = drupal_get_messages('error');
+          if (isset($error_msgs['error'])) {
+            $facet_is_valid = FALSE;
+          }
+          // Restore the original messages.
+          $_SESSION['messages'] = $old_msg;
+          if (!$facet_is_valid) {
+            form_set_error('filter', t('Invalid Facet Query Filter.'));
+          }
+        }
+
+        if ($facet_is_valid) {
+          // Put values into config array.
+          $expore_config[$facet_filter] = array(
+            'label' => $facet_label,
+            'filter' => $facet_filter,
+            'weight' => $facet_weight,
+          );
+
+          // Sort config array by weight and update drupal variable.
+          uasort($expore_config, 'drupal_sort_weight');
+
+          // Reset input values on successful add.
+          $form_state['input']['label'] = '';
+          $form_state['input']['filter'] = '';
+          $form_state['input']['facet_weight'] = 0;
+          $form_state['islandora_solr_facet_filters'] = $expore_config;
+        }
+      }
+    }
+
+    // Set table row data to be rendered.
+    $rows = array();
+    if (!empty($expore_config)) {
+      foreach ($expore_config as $row_index => $row) {
+        $rows["facet-row-$row_index"] = array(
+          'display_label' => htmlentities($row['label']),
+          'facet_filter' => htmlentities($row['filter']),
+          'facet_weight' => array(
+            'data' => array(
+              '#type' => 'select',
+              '#title' => t('Weight'),
+              '#options' => drupal_map_assoc(range(-50, 50)),
+              '#value' => (isset($row['weight']) ? $row['weight'] : 0),
+              '#title_display' => 'invisible',
+              '#attributes' => array(
+                'name' => "select_weight[{$row['filter']}]",
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    $form['facet'] = array(
+      '#type' => 'fieldset',
+      '#prefix' => '<div id="islandora-solr-facet-filter-wrapper">',
+      '#suffix' => '</div>',
+      '#title' => t('Setup Display Facets'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+    );
+    $form['facet']['table'] = array(
+      '#type' => 'tableselect',
+      '#header' => array(
+        'display_label' => t('Display Label'),
+        'facet_filter' => t('Facet Query Filter'),
+        'facet_weight' => t('Weight'),
+      ),
+      '#options' => $rows,
+      '#empty' => t('No display facets'),
+      '#attributes' => array('class' => array('main-facet-table')),
+    );
+    $form['facet']['actions'] = array(
+      '#type' => 'actions',
+      '#weight' => 5,
+    );
+    $form['facet']['actions']['remove'] = array(
+      '#type' => 'button',
+      '#value' => t('Remove selected'),
+      '#weight' => 0,
+      '#ajax' => array(
+        'callback' => '_islandora_solr_update_filter_table',
+        'wrapper' => 'islandora-solr-facet-filter-wrapper',
+      ),
+    );
+    $form['facet']['actions']['update_weight'] = array(
+      '#type' => 'button',
+      '#value' => t('Update weights'),
+      '#weight' => 1,
+      '#ajax' => array(
+        'callback' => '_islandora_solr_update_filter_table',
+        'wrapper' => 'islandora-solr-facet-filter-wrapper',
+      ),
+    );
+    $form['facet']['fieldset'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Add New Display Facet Details'),
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      '#weight' => 13,
+    );
+    $form['facet']['fieldset']['label'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Display Label'),
+      '#size' => 60,
+      '#description' => t('The text displayed for the generated link.'),
+      '#attributes' => array('class' => array('new-facet-label')),
+    );
+    $form['facet']['fieldset']['filter'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Facet Query Filter'),
+      '#size' => 60,
+      '#description' => t("Write a custom facet query, for information on available tags see:") . l(t('Solr Luke Schema.'), "{$GLOBALS['base_url']}:8080/solr/admin/luke"),
+      '#attributes' => array('class' => array('new-facet-filter')),
+    );
+    $form['facet']['fieldset']['facet_weight'] = array(
+      '#type' => 'select',
+      '#title' => t('Facet weight'),
+      '#description' => t('Display weight'),
+      '#options' => drupal_map_assoc(range(-50, 50)),
+      '#default_value' => 0,
+      '#attributes' => array('class' => array('new-facet-weight')),
+    );
+    $form['facet']['fieldset']['add'] = array(
+      '#type' => 'button',
+      '#value' => t('Add'),
+      '#attributes' => array('class' => array('islandora-solr-add-more-submit')),
+      '#id' => 'facet-filter-add-more',
+      '#ajax' => array(
+        'callback' => '_islandora_solr_update_filter_table',
+        'wrapper' => 'islandora-solr-facet-filter-wrapper',
+      ),
+    );
+    // Process submit and variable set the new config on submit.
+    $form['#submit'][] = 'islandora_solr_update_filters_on_submit';
+  }
+}
+
+/**
+ * On submit of the explore block config save the facet filters in form state.
+ */
+function islandora_solr_update_filters_on_submit($form, &$form_state) {
+  if (isset($form_state['islandora_solr_facet_filters'])) {
+    variable_set('islandora_solr_explore_config', $form_state['islandora_solr_facet_filters']);
+  }
+}
+
+/**
+ * Ajax Callback to reload the facet form when adding rows to the table.
+ */
+function _islandora_solr_update_filter_table($form, &$form_state) {
+  return $form['facet'];
+}
 
 /**
  * Implements hook_block_view().
@@ -132,6 +398,7 @@ function islandora_solr_block_view($block_name = '') {
         $display_class = new $solr_blocks[$block_name]['class']();
         $block_function = $solr_blocks[$block_name]['function'];
         if (method_exists($display_class, $block_function)) {
+
           $block['content'] = $display_class->$block_function($_islandora_solr_queryclass);
         }
       }
@@ -663,6 +930,14 @@ EOQ;
     '#prefix' => '<div class="islandora-solr-advanced-controls">',
     '#suffix' => '</div>',
   );
+  // Filter preservation toggle.
+  if (variable_get('islandora_solr_allow_preserve_filters', FALSE)) {
+    $form['controls']['islandora_solr_allow_preserve_filters'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Preserve Filters'),
+      '#default_value' => FALSE,
+    );
+  }
   $form['controls']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Search'),
@@ -732,6 +1007,11 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
   if (empty($query)) {
     $query = '*:*';
   }
+  // Handle filters.
+  $filter = '';
+  if (isset($form_state['values']['islandora_solr_allow_preserve_filters']) && $form_state['values']['islandora_solr_allow_preserve_filters']) {
+    $filter = isset($_GET['f']) ? $_GET['f'] : '';
+  }
 
   $params = array();
   $collection = $form_state['values']['islandora_advanced_collection'];
@@ -740,7 +1020,12 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
   }
 
   // Navigate to results page.
-  //$form_state['redirect'] = ISLANDORA_SOLR_SEARCH_PATH . "/$query";
+/*
+  $form_state['redirect'] = array(
+    ISLANDORA_SOLR_SEARCH_PATH . "/$query",
+    $filter ? array('query' => array('f' => $filter)) : array(),
+  );
+*/
   drupal_goto('islandora/search/' . $query, array('query' => $params));
 }
 
@@ -1348,6 +1633,7 @@ function islandora_solr_display() {
  *   A rendered list containing Solr sort links.
  */
 function islandora_solr_sort() {
+  module_load_include('inc', 'islandora', 'includes/utilities');
   global $_islandora_solr_queryclass;
 
   $output = '';
@@ -1406,13 +1692,25 @@ function islandora_solr_sort() {
 
       $query = array_merge($params, array('sort' => $sort_param));
 
-      $attr = array();
+      $attributes = array(
+        'sort' => array(
+          'attr' => array(
+            'class' => array(),
+          ),
+          'query' => $query,
+          'path' => $path,
+        ),
+      );
+      $attr =& $attributes['sort']['attr'];
       if ($term == $current_sort_term) {
-        $attr['class'] = 'active';
+        $attr['class'] = array('active');
       }
       $attr['rel'] = 'nofollow';
       $attr['title'] = $label;
       $attr['href'] = url($path, array('query' => $query));
+
+      $hooks = islandora_build_hook_list(ISLANDORA_SOLR_FACET_BUCKET_CLASSES_HOOK_BASE);
+      drupal_alter($hooks, $attributes, $_islandora_solr_queryclass);
 
       // XXX: We're not using l() because of
       // @link http://drupal.org/node/41595 active classes. @endlink
@@ -1440,4 +1738,139 @@ function islandora_solr_sort() {
   }
 
   return $output;
+}
+
+/**
+ * Search results navigation block.
+ *
+ * Pull params out of the URL to determine search id
+ * and object offset.
+ *
+ * We use offset because the pid of a search result can be altered.
+ * eg: Book pages
+ *
+ * @return string
+ *   The rendered html for the block content.
+ */
+function islandora_solr_search_navigation() {
+  $return = NULL;
+  $params = drupal_get_query_parameters();
+  if (variable_get('islandora_solr_search_navigation', FALSE) &&
+    isset($params['solr_nav']['id']) &&
+    isset($params['solr_nav']['page']) &&
+    isset($params['solr_nav']['offset']) &&
+    isset($_SESSION['islandora_solr_search_nav_params'][$params['solr_nav']['id']])) {
+    $nav_params = $_SESSION['islandora_solr_search_nav_params'][$params['solr_nav']['id']];
+
+    $prev_solr_object = NULL;
+    $prev_offset = NULL;
+    $prev_page = NULL;
+    $next_solr_object = NULL;
+    $next_offset = NULL;
+    $next_page = NULL;
+    $offset = $params['solr_nav']['offset'];
+    $page = $params['solr_nav']['page'];
+    $query_processor = $nav_params['query_processor'];
+    $limit = $query_processor->solrLimit;
+    $query_processor->solrStart = $page * $limit;
+    // Get solr objects for current page.
+    $query_processor->executeQuery();
+
+    if (!empty($query_processor->islandoraSolrResult)) {
+      $objects = $query_processor->islandoraSolrResult['response']['objects'];
+    }
+    else {
+      $objects = array();
+    }
+
+    // Try get previous object on the current page.
+    if ($offset != 0) {
+      if (isset($objects[$offset - 1])) {
+        $prev_solr_object = $objects[$offset - 1];
+        $prev_offset = $offset - 1;
+        $prev_page = $page;
+      }
+    }
+
+    // If previous object can't be found on current page,
+    // go to the previous page and select the last object.
+    if (!$prev_solr_object && $page != 0) {
+      $query_processor = $nav_params['query_processor'];
+      $limit = $query_processor->solrLimit;
+      $query_processor->solrStart = ($page - 1) * $limit;
+      $query_processor->executeQuery();
+      if (!empty($query_processor->islandoraSolrResult) && !empty($query_processor->islandoraSolrResult['response']['objects'])) {
+        $prev_objects = $query_processor->islandoraSolrResult['response']['objects'];
+        end($prev_objects);
+        $prev_offset = key($prev_objects);
+        $prev_page = $page - 1;
+        $prev_solr_object = $prev_objects[$prev_offset];
+      }
+    }
+
+    // Try get next object on the current page.
+    if (isset($objects[$offset + 1])) {
+      $next_solr_object = $objects[$offset + 1];
+      $next_offset = $offset + 1;
+      $next_page = $page;
+    }
+
+    // If next object can't be found on current page,
+    // go to the next page and select the first object.
+    if (!$next_solr_object) {
+      $query_processor = $nav_params['query_processor'];
+      $limit = $query_processor->solrLimit;
+      $query_processor->solrStart = ($page + 1) * $limit;
+      $query_processor->executeQuery();
+      if (!empty($query_processor->islandoraSolrResult) && !empty($query_processor->islandoraSolrResult['response']['objects'])) {
+        $next_objects = $query_processor->islandoraSolrResult['response']['objects'];
+        $next_offset = 0;
+        $next_page = $page + 1;
+        $next_solr_object = $next_objects[$next_offset];
+      }
+    }
+
+    $return_link = NULL;
+    $prev_link = NULL;
+    $next_link = NULL;
+    // Get URL details from the prev and next objects
+    // to populate navigation links.
+    if (isset($nav_params['path'])) {
+      $return_query = array_merge($nav_params['query_processor']->internalSolrParams, array('page' => $page));
+      $return_link = url($nav_params['path'], array('query' => $return_query, 'absolute' => TRUE));
+    }
+    if ($prev_solr_object) {
+      $prev_params = $prev_solr_object['object_url_params'];
+      $prev_params['solr_nav']['offset'] = $prev_offset;
+      $prev_params['solr_nav']['page'] = $prev_page;
+      $prev_params['solr_nav']['id'] = $params['solr_nav']['id'];
+      $prev_link = url($prev_solr_object['object_url'], array(
+        'query' => $prev_params,
+        'fragment' => (isset($prev_solr_object['object_url_fragment']) ? $prev_solr_object['object_url_fragment'] : ''),
+        'absolute' => TRUE,
+      ));
+
+    }
+
+    if ($next_solr_object) {
+      $next_params = $next_solr_object['object_url_params'];
+      $next_params['solr_nav']['offset'] = $next_offset;
+      $next_params['solr_nav']['page'] = $next_page;
+      $next_params['solr_nav']['id'] = $params['solr_nav']['id'];
+      $next_link = url($next_solr_object['object_url'], array(
+        'query' => $next_params,
+        'fragment' => (isset($next_solr_object['object_url_fragment']) ? $next_solr_object['object_url_fragment'] : ''),
+        'absolute' => TRUE,
+      ));
+    }
+    $return = theme('islandora_solr_search_navigation_block', array(
+      'return_link' => $return_link,
+      'return_text' => t('Return to search'),
+      'prev_link' => $prev_link,
+      'prev_text' => t('Previous Object'),
+      'next_link' => $next_link,
+      'next_text' => t('Next Object'),
+    ));
+  }
+  return $return;
 }
