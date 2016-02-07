@@ -61,6 +61,7 @@ function islandora_solr_uninstall() {
     'islandora_solr_search_boolean',
     'islandora_solr_limit_result_fields',
     'islandora_solr_num_of_results',
+    'islandora_solr_search_navigation',
     'islandora_solr_namespace_restriction',
     'islandora_solr_base_query',
     'islandora_solr_base_sort',
@@ -70,6 +71,8 @@ function islandora_solr_uninstall() {
     'islandora_solr_content_model_field',
     'islandora_solr_object_label_field',
     'islandora_solr_datastream_id_field',
+    'islandora_solr_allow_preserve_filters',
+    'islandora_solr_force_update_index_after_object_purge',
   );
   foreach ($variables as $variable) {
     variable_del($variable);

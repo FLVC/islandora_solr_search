@@ -137,7 +137,33 @@ function islandora_solr_csv_explode($delim = ',', $str = '', $enclose = '"', $pr
  *   The escaped string.
  */
 function islandora_solr_lesser_escape($value) {
-  $pattern = '/(\+|-|&&|\|\||!|\(|\)|\{|}|\[|]|\^| |~|\?|:|\\\)/';
+  $pattern = '/(\/|\+|-|&&|\|\||!|\(|\)|\{|}|\[|]|\^| |~|\?|:|\\\)/';
+  $replace = '\\\$1';
+
+  return preg_replace($pattern, $replace, $value);
+}
+
+/**
+ * Escape a string for inclusion in a facet.
+ *
+ * Copied from Apache_Solr_Service.
+ *
+ * Divergences from Apache_Solr_Service::escape():
+ * - removed '?':
+ *   - '?' is useful.
+ * - removed '*':
+ *   - Allows wildcard searches.
+ * - added space:
+ *   - Needed for spaces in fields.
+ *
+ * @param string $value
+ *   A string to escape.
+ *
+ * @return string
+ *   The escaped string.
+ */
+function islandora_solr_facet_escape($value) {
+  $pattern = '/(\"|\/|\+|-|&&|\|\||!|\(|\)|\{|}|\[|]|\^| |~|\?|:|\\\)/';
   $replace = '\\\$1';
 
   return preg_replace($pattern, $replace, $value);
@@ -150,7 +176,7 @@ function islandora_solr_escape($facets) {
   $return_facets = array();
   foreach ($facets as $facet) {
     $tmp = drupal_substr($facet, 0, strpos($facet, ':"'));
-    $tmp = lesser_escape(trim($tmp));
+    $tmp = islandora_solr_lesser_escape(trim($tmp));
 
     $return_facets[] = $tmp . drupal_substr($facet, strpos($facet, ':"'), drupal_strlen($facet));
   }
@@ -256,6 +282,7 @@ function islandora_solr_prepare_solr_results($solr_results) {
   $highlighting = isset($solr_results['highlighting']) ? $solr_results['highlighting'] : array();
   $fields_all = islandora_solr_get_fields('result_fields', FALSE);
   $link_to_object = islandora_solr_get_link_to_object_fields();
+  $truncate_length = islandora_solr_get_truncate_length_fields();
   $link_to_search = islandora_solr_get_link_to_search_fields();
   $date_format = islandora_solr_get_date_format_fields();
 
@@ -289,6 +316,22 @@ function islandora_solr_prepare_solr_results($solr_results) {
         $value = $highlighting[$pid][$field];
       }
 
+      // Truncate value lengths before linking, avoids destroying link tags.
+      if (array_key_exists($field, $truncate_length) && $truncate_length[$field]['maximum_length'] > 0 && (!isset($truncate_length[$field]['truncation_type']) || $truncate_length[$field]['truncation_type'] == 'separate_value_option')) {
+        // Coder tends to not like inline anonymous functions.
+        $truncate_func = function (&$val_val) use ($field, $truncate_length) {
+          $tf =& $truncate_length[$field];
+          $wordsafe = FALSE;
+          $min_wordsafe_length = 1;
+          if (isset($tf['wordsafe'])) {
+            $wordsafe = $tf['wordsafe'];
+            $min_wordsafe_length = $tf['wordsafe_length'];
+          }
+          $val_val = truncate_utf8($val_val, $tf['maximum_length'], $wordsafe, $tf['add_ellipsis'], $min_wordsafe_length);
+        };
+        array_walk($value, $truncate_func);
+      }
+
       // Add link to search.
       if (in_array($field, $link_to_search)) {
         $map_to_link = function ($original_value, $formatted_value) use ($field) {
@@ -302,7 +345,10 @@ function islandora_solr_prepare_solr_results($solr_results) {
         };
         $value = array_map($map_to_link, (array) $original_value, (array) $value);
       }
-
+      // Truncate output based on the field rather than by value.
+      if (array_key_exists($field, $truncate_length) && $truncate_length[$field]['maximum_length'] > 0 && isset($truncate_length[$field]['truncation_type']) && $truncate_length[$field]['truncation_type'] == 'whole_field_option') {
+        $value = islandora_solr_truncate_field_display($value, $truncate_length[$field]['maximum_length'], $truncate_length[$field]['add_ellipsis'], $truncate_length[$field]['wordsafe'], $truncate_length[$field]['wordsafe_length'], "<br />");
+      }
       // Implode.
       $value = is_array($value) ? implode(", ", $value) : $value;
       // Add link to object.
@@ -316,3 +362,91 @@ function islandora_solr_prepare_solr_results($solr_results) {
   }
   return $solr_results;
 }
+
+/**
+ * Implements callback_islandora_basic_collection_query_backends().
+ */
+function islandora_solr_islandora_basic_collection_backend_callable($collection_object, $page, $limit) {
+  // XXX: We populate the global query class, to allow the sort and facet
+  // blocks and the like to function.
+  global $_islandora_solr_queryclass;
+  $qp = new IslandoraSolrQueryProcessor();
+  $_islandora_solr_queryclass = $qp;
+
+  $qp->buildQuery(format_string('!member_field:("info:fedora/!pid" OR "!pid") OR !collection_member_field:("info:fedora/!pid" OR "!pid")', array(
+    '!member_field' => variable_get('islandora_solr_member_of_field', 'RELS_EXT_isMemberOf_uri_ms'),
+    '!pid' => $collection_object->id,
+    '!collection_member_field' => variable_get('islandora_solr_member_of_collection_field', 'RELS_EXT_isMemberOfCollection_uri_ms'),
+  )), drupal_get_query_parameters());
+  $qp->solrStart = $page * $limit;
+  $qp->solrLimit = $limit;
+  $qp->executeQuery();
+
+  $map_to_pids = function ($result) {
+    return $result['PID'];
+  };
+  return array(
+    $qp->islandoraSolrResult['response']['numFound'],
+    array_map($map_to_pids, $qp->islandoraSolrResult['response']['objects']),
+  );
+};
+
+/**
+ * Truncate the field display based on entire field result(s).
+ *
+ *
+ * @param array $display_values
+ *   An array of the values that are to be processed for truncation.
+ * @param int $max_length
+ *   The maxium length of characters to display before truncating results.
+ * @param bool $add_ellipsis
+ *   Boolean to enable the display of an ellispsis.
+ * @param bool $word_safe
+ *   Boolean to enable word safe in truncate_utf8.
+ * @param int $wordsafe_length
+ *   Min wordsafe length.
+ * @param string $separator
+ *   A separator to use for display output.
+ *
+ * @return string
+ *   The updated display values.
+ */
+function islandora_solr_truncate_field_display($display_values, $max_length, $add_ellipsis, $word_safe, $wordsafe_length, $separator) {
+  $updated_display_values = $display_values;
+  if (count($updated_display_values) > 0) {
+    $mod_path = drupal_get_path('module', 'islandora_solr');
+    drupal_add_js("$mod_path/js/truncation-toggle.js");
+    // Build two arrays for display, one filtered by size (max_values)
+    // and one with all the data.
+    $truncated_list = array();
+    $character_output_count = 0;
+    foreach ($updated_display_values as $index => $current_value) {
+      if ($character_output_count + drupal_strlen($current_value) <= $max_length) {
+        $truncated_list[] = $current_value;
+        $character_output_count += drupal_strlen($current_value);
+      }
+      elseif ($character_output_count + drupal_strlen($current_value) > $max_length) {
+        $truncation_length = $max_length - $character_output_count;
+        // Force the display of the full ellipsis.
+        if ($add_ellipsis) {
+          $truncation_length = max($truncation_length, drupal_strlen(t('...')));
+        }
+        $current_value = truncate_utf8($current_value, $truncation_length, $word_safe, $add_ellipsis, $wordsafe_length);
+        $truncated_list[] = $current_value;
+        break;
+      }
+    }
+    $updated_display_values
+      = '<span class="toggle-wrapper">' .
+      t("<span>!value !separator<a href='#' class='toggler'>Show more</a></span>", array(
+        '!separator' => $separator,
+        '!value' => implode($separator, $truncated_list),
+      )) .
+      t("<span>!original_value !separator<a href='#' class='toggler'>Show less</a></span>", array(
+        '!separator' => $separator,
+        '!original_value' => implode($separator, $display_values),
+      )) .
+      '</span>';
+  }
+  return $updated_display_values;
+};
