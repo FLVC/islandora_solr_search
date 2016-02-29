@@ -1328,8 +1328,8 @@ function islandora_solr_metadata_search_form_submit($form, &$form_state) {
   foreach ($form_state['values']['terms'] as $term) {
     $field = str_replace('.','_',$term['field']) . '_mt';
     $search = trim($term['search']);
-    // XXX: Should probably use islandora_solr_replace_slashes().
-    $search = str_replace('/', '~slsh~', $search);
+    $search = islandora_solr_replace_slashes($search);
+    $search = str_replace(':','\:',$search);
     $boolean = (isset($term['boolean'])) ? $term['boolean'] : variable_get('islandora_solr_search_boolean', 'user');
 
     // Add query.
