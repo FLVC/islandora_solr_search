@@ -377,9 +377,9 @@ function islandora_solr_prepare_solr_results($solr_results) {
 function islandora_solr_islandora_basic_collection_backend_callable($collection_object, $page, $limit) {
   // XXX: We populate the global query class, to allow the sort and facet
   // blocks and the like to function.
-  global $_islandora_solr_queryclass;
+  //global $_islandora_solr_queryclass;
   $qp = new IslandoraSolrQueryProcessor();
-  $_islandora_solr_queryclass = $qp;
+  //$_islandora_solr_queryclass = $qp;
 
   $qp->buildQuery(format_string('!member_field:("info:fedora/!pid" OR "!pid") OR !collection_member_field:("info:fedora/!pid" OR "!pid")', array(
     '!member_field' => variable_get('islandora_solr_member_of_field', 'RELS_EXT_isMemberOf_uri_ms'),
