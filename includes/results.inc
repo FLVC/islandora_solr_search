@@ -707,6 +707,11 @@ class IslandoraSolrResults {
       'info:fedora/islandora:intermediateCModel' => 'Serial component',
       'info:fedora/ir:citationCModel' => 'Citation',
       'info:fedora/ir:thesisCModel' => 'Thesis',
+      'info:fedora/islandora:entityCModel' => 'Institutional Entity',
+      'info:fedora/islandora:organizationCModel' => 'Institutional Organization',
+      'info:fedora/islandora:personCModel' => 'Institutional Scholar',
+      'info:fedora/islandora:eventCModel' => 'Institutional Event',
+      'info:fedora/islandora:placeCModel' => 'Institutional Place',
     );
 
     if (isset($format_array[$hasModel])) {
@@ -1647,6 +1652,11 @@ class IslandoraSolrFacets {
       'info:fedora/islandora:intermediateCModel' => 'Serial component',
       'info:fedora/ir:citationCModel' => 'Citation',
       'info:fedora/ir:thesisCModel' => 'Thesis',
+      'info:fedora/islandora:entityCModel' => 'Institutional Entity',
+      'info:fedora/islandora:organizationCModel' => 'Institutional Organization',
+      'info:fedora/islandora:personCModel' => 'Institutional Scholar',
+      'info:fedora/islandora:eventCModel' => 'Institutional Event',
+      'info:fedora/islandora:placeCModel' => 'Institutional Place',
     );
 
     if (isset($format_array[$hasModel])) {
