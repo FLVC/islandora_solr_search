@@ -304,23 +304,31 @@ class IslandoraSolrQueryProcessor {
       $collection = $this->internalSolrParams['collection'];
       $collections_filter = '';
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
-      $query = 'select $subject $content from <#ri>
-               where  ($subject <fedora-model:hasModel> $content and ($content <mulgara:is> <info:fedora/islandora:collectionCModel>';
+      $query = <<<'EOQ'
+SELECT ?subject ?content
+FROM <#ri>
+WHERE {
+  ?subject <fedora-model:hasModel> ?content;
+           <fedora-rels-ext:isMemberOfCollection>+ <info:fedora/!pid>;
+           <fedora-model:state> <info:fedora/fedora-system:def/model#Active> .
+FILTER(!contentfilter)
+}
+EOQ;
+      $contentfilter = 'sameTerm(?content, <info:fedora/islandora:collectionCModel>)';
       // if non-empty search or advanced search, RI query includes newspaper issues and serial issues
       if (($this->solrQuery != ' ')||($fromAdvsrch)) {
-         $query .= 'or $content <mulgara:is> <info:fedora/islandora:newspaperCModel>
-                    or $content <mulgara:is> <info:fedora/islandora:rootSerialCModel>';
+         $contentfilter .= ' || sameTerm(?content, <info:fedora/islandora:newspaperCModel>) || sameTerm(?content, <info:fedora/islandora:rootSerialCModel>)';
       }
       //if (!isset($this->internalSolrParams['type']) || ($this->internalSolrParams['type'] != 'dismax' && $this->internalSolrParams['type'] != 'edismax')) {
       // if full text search, RI query includes books
       if ((strstr($this->solrQuery, "catch_all_fulltext_mt"))||(strstr($this->solrQuery, "catch_all_foxml_text_mt"))) {
-         $query .= 'or $content <mulgara:is> <info:fedora/islandora:bookCModel>';
+         $contentfilter .= ' || sameTerm(?content, <info:fedora/islandora:bookCModel>)';
       }
-      $query .= '))
-               and walk($subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $collection . '>
-               and $subject <fedora-rels-ext:isMemberOfCollection> $object)
-               and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>';
-      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      $formatted_query = format_string($query, array(
+        '!pid' => $collection,
+        '!contentfilter' => $contentfilter,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_query, 'unlimited');
       foreach ($results as $result) {
           if ($result['content']['value'] == 'islandora:collectionCModel') {
               $collections_filter = $collections_filter . 'RELS_EXT_isMemberOfCollection_uri_ms:info\:fedora/' . str_replace(':', '\:', $result['subject']['value']) . ' OR ';
@@ -591,9 +599,17 @@ class IslandoraSolrQueryProcessor {
 
   function getTitle($object_pid) {
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
-      $query = 'select $title from <#ri>
-               where <' . $object_pid . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      $query = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_query = format_string($query, array(
+        '!pid' => $object_pid,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_query, 'unlimited');
       foreach ($results as $result) {
           return $result['title']['value'];
       }

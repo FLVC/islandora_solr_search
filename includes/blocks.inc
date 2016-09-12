@@ -437,10 +437,17 @@ function islandora_solr_simple_search_form($form, &$form_state) {
   if (!empty($collection_selected)) {
       $collection_title = '';
       $query_pid = $collection_selected;
-      //$collection_options = array_merge($collection_options, array($collection_id => $collection_title));
-      $titlequery = 'select $title from <#ri>
-                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      $titlequery = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <info:fedora/!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_titlequery = format_string($titlequery, array(
+        '!pid' => $collection_selected,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_titlequery, 'unlimited');
       foreach ($results as $result) {
           $collection_title =  $result['title']['value'];
       }
@@ -462,19 +469,21 @@ function islandora_solr_simple_search_form($form, &$form_state) {
       }
       else {
           $query_pid = $view_pid;
-          //$titlequery = 'select $title from <#ri>
-          //               where <info:fedora/' . $query_pid . '> <fedora-model:label> $title';
-          //$results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
-          //foreach ($results as $result) {
-          //    $collection_title =  $result['title']['value'];
-          //}
 
           // query for current object label and hasModel
-          $contentquery = 'select $title $content from <#ri>
-                    where <info:fedora/' . $query_pid . '> <fedora-model:label> $title
-                    and <info:fedora/' . $query_pid . '> <fedora-model:hasModel> $content
-                    minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>';
-          $results = $fedora_object->repository->ri->itqlQuery($contentquery, 'unlimited');
+          $contentquery = <<<'EOQ'
+SELECT ?title ?content
+FROM <#ri>
+WHERE {
+  <info:fedora/!pid> <fedora-model:label> ?title;
+                     <fedora-model:hasModel> ?content .
+FILTER (!sameTerm(?content, <info:fedora/fedora-system:FedoraObject-3.0>))
+}
+EOQ;
+          $formatted_contentquery = format_string($contentquery, array(
+            '!pid' => $query_pid,
+          ));
+          $results = $fedora_object->repository->ri->sparqlQuery($formatted_contentquery, 'unlimited');
           $object_content_type = '';
           $object_title = '';
           if (count($results) > 0) {
@@ -508,31 +517,41 @@ function islandora_solr_simple_search_form($form, &$form_state) {
                 (strpos($object_content_type, 'intermediateCModel'))||
                 (count($component_of) > 0))
             {
-                $query_book = 'select $parentObject $collection from <#ri>
-                        where (
-                        $parentObject <fedora-rels-ext:isMemberOfCollection> $collection and
-                        walk(<info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOf> $parentObject and $subject <fedora-rels-ext:isMemberOf> $parentObject)
-                      )';
-                $results = $fedora_object->repository->ri->itqlQuery($query_book, 'unlimited');
+                $query_book = <<<'EOQ'
+SELECT ?parentObject ?collection
+FROM <#ri>
+WHERE {
+  ?parentObject <fedora-rels-ext:isMemberOfCollection> ?collection .
+  <info:fedora/!pid> <fedora-rels-ext:isMemberOf>+ ?parentObject .
+}
+EOQ;
+                $formatted_query_book = format_string($query_book, array(
+                  '!pid' => $query_pid,
+                ));
+                $results = $fedora_object->repository->ri->sparqlQuery($formatted_query_book, 'unlimited');
                 if (count($results) > 0) {
                     $query_pid = $results[0]['parentObject']['value'];
                 }
             }
 
             // get the immediate parent collections
-            $query_string = 'select $parentObject $title $content from <#ri>
-                        where (
-                        $parentObject <fedora-model:label> $title
-                        and $parentObject <fedora-model:hasModel> $content
-                        and (
-                          <info:fedora/' . $query_pid . '> <fedora-rels-ext:isMemberOfCollection> $parentObject
-                        )
-                        and $parentObject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
-                      )
-                      minus $content <mulgara:is> <info:fedora/fedora-system:FedoraObject-3.0>
-                      minus $parentObject <mulgara:is> <info:fedora/' . $query_pid . '>
-                      order by $title desc';
-            $results = $fedora_object->repository->ri->itqlQuery($query_string, 'unlimited');
+            $query_string = <<<'EOQ'
+SELECT ?parentObject ?title ?content
+FROM <#ri>
+WHERE {
+  <info:fedora/!pid> <fedora-rels-ext:isMemberOfCollection> ?parentObject .
+  ?parentObject <fedora-model:label> ?title;
+                <fedora-model:hasModel> ?content;
+                <fedora-model:state> <info:fedora/fedora-system:def/model#Active> .
+FILTER (!sameTerm(?content, <info:fedora/fedora-system:FedoraObject-3.0>))
+FILTER (!sameTerm(?parentObject, <info:fedora/!pid>))
+}
+ORDER BY DESC(?title)
+EOQ;
+            $formatted_query_string = format_string($query_string, array(
+              '!pid' => $query_pid,
+            ));
+            $results = $fedora_object->repository->ri->sparqlQuery($formatted_query_string, 'unlimited');
             foreach ($results as $result) {
                 // only add parent collection if namespace matches site root
                 $root_namespace = islandora_get_namespace($query_root);
@@ -553,15 +572,6 @@ function islandora_solr_simple_search_form($form, &$form_state) {
   $collection_options = array_merge($collection_options, array('' => t('All Collections')));
 
   if (!empty($query_pid)) {
-/*
-      $query = 'select $subject $title from <#ri>
-               where $subject <fedora-model:label> $title
-               and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
-               and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_pid . '>
-               and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
-               order by $title';
-      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
-*/
       $collections_query = <<<EOQ
 SELECT ?object ?title
 FROM <#ri>
@@ -697,10 +707,17 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
 
   if (!empty($collection_selected)) {
       $query_pid = $collection_selected;
-
-      $titlequery = 'select $title from <#ri>
-                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      $titlequery = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <info:fedora/!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_titlequery = format_string($titlequery, array(
+        '!pid' => $collection_selected,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_titlequery, 'unlimited');
       foreach ($results as $result) {
           $collection_title =  $result['title']['value'];
       }
@@ -713,15 +730,6 @@ function islandora_solr_advanced_search_form($form, &$form_state) {
   }
   $collection_options = array_merge($collection_options, array($all_collections_value => t('All Collections')));
 
-/*
-  $query = 'select $subject $title from <#ri>
-           where $subject <fedora-model:label> $title
-           and  $subject <fedora-model:hasModel> <info:fedora/islandora:collectionCModel>
-           and $subject <fedora-rels-ext:isMemberOfCollection> <info:fedora/' . $query_pid . '>
-           and $subject <fedora-model:state> <info:fedora/fedora-system:def/model#Active>
-           order by $title';
-  $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
-*/
   $collections_query = <<<EOQ
 SELECT ?object ?title
 FROM <#ri>
@@ -1223,10 +1231,17 @@ function islandora_solr_metadata_search_form($form, &$form_state) {
 
   if (!empty($collection_selected)) {
       $query_pid = $collection_selected;
-
-      $titlequery = 'select $title from <#ri>
-                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      $titlequery = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <info:fedora/!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_titlequery = format_string($titlequery, array(
+        '!pid' => $collection_selected,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_titlequery, 'unlimited');
       foreach ($results as $result) {
           $collection_title =  $result['title']['value'];
       }
@@ -1401,10 +1416,17 @@ function islandora_solr_metadata_browse_form($form, &$form_state) {
 
   if (!empty($collection_selected)) {
       $query_pid = $collection_selected;
-
-      $titlequery = 'select $title from <#ri>
-                     where <info:fedora/' . $collection_selected . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($titlequery, 'unlimited');
+      $titlequery = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <info:fedora/!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_titlequery = format_string($titlequery, array(
+        '!pid' => $collection_selected,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_titlequery, 'unlimited');
       foreach ($results as $result) {
           $collection_title =  $result['title']['value'];
       }

@@ -681,9 +681,17 @@ class IslandoraSolrResults {
 
   function getTitle($object_pid) {
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
-      $query = 'select $title from <#ri>
-               where <' . $object_pid . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      $query = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_query = format_string($query, array(
+        '!pid' => $object_pid,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_query, 'unlimited');
       foreach ($results as $result) {
           return $result['title']['value'];
       }
@@ -1626,9 +1634,17 @@ class IslandoraSolrFacets {
 
   function getTitle($object_pid) {
       $fedora_object = islandora_object_load(variable_get('islandora_repository_pid', 'islandora:root'));
-      $query = 'select $title from <#ri>
-               where <' . $object_pid . '> <fedora-model:label> $title';
-      $results = $fedora_object->repository->ri->itqlQuery($query, 'unlimited');
+      $query = <<<'EOQ'
+SELECT ?title
+FROM <#ri>
+WHERE {
+  <!pid> <fedora-model:label> ?title .
+}
+EOQ;
+      $formatted_query = format_string($query, array(
+        '!pid' => $object_pid,
+      ));
+      $results = $fedora_object->repository->ri->sparqlQuery($formatted_query, 'unlimited');
       foreach ($results as $result) {
           return $result['title']['value'];
       }
