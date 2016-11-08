@@ -1845,7 +1845,7 @@ function islandora_solr_admin_settings_result_fields($form, &$form_state, $varia
  * @param bool $default_value
  *   Whether the default enabled checkbox is to be TRUE or FALSE. *
  */
-function islandora_solr_append_permissions_and_actions($values, &$form, $default_value = TRUE) {
+function islandora_solr_append_permissions_and_actions($values, &$form, $default_value = FALSE) {
   $permissions = isset($values['permissions']) ? $values['permissions'] : array();
   $permissions_disable = _islandora_solr_permissions_disable();
   $permissions_default = _islandora_solr_permissions_default();

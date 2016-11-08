@@ -386,10 +386,20 @@ function islandora_solr_islandora_basic_collection_backend_callable($collection_
     '!pid' => $collection_object->id,
     '!collection_member_field' => variable_get('islandora_solr_member_of_collection_field', 'RELS_EXT_isMemberOfCollection_uri_ms'),
   )), drupal_get_query_parameters());
+  // start FLVC
   $collectionfilter = array_search('-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:collectionCModel',$qp->solrParams['fq']);
   if ($collectionfilter !== false) {
     unset($qp->solrParams['fq'][$collectionfilter]);
   }
+  module_load_include('inc', 'islandora', 'includes/utilities');
+  $namespace_array = islandora_get_allowed_namespaces();
+  $namespace_filter_array = array();
+  foreach ($namespace_array as $namespace) {
+    $namespace_filter_array[] = "PID:$namespace\:*";
+  }
+  $qp->solrParams['fq'][] = implode(' OR ', $namespace_filter_array);
+  $qp->solrParams['sort'] = 'fgs_label_s asc';
+  // end FLVC
   $qp->solrStart = $page * $limit;
   $qp->solrLimit = $limit;
   $qp->executeQuery();
