@@ -350,8 +350,10 @@ EOQ;
       $this->solrParams['fq'][] = trim($collections_filter);
     }
 
-    // remove collection objects from all searches
-    $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:collectionCModel';
+    // remove collection objects from all user searches
+    if (strstr(current_path(), 'islandora/search')) {
+      $this->solrParams['fq'][] = '-RELS_EXT_hasModel_uri_ms:info\:fedora/islandora\:collectionCModel';
+    }
 
     // simple search filters
     if (isset($this->internalSolrParams['type']) && ($this->internalSolrParams['type'] == 'dismax' || $this->internalSolrParams['type'] == 'edismax')) {
