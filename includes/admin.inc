@@ -522,6 +522,12 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#default_value' => variable_get('islandora_solr_allow_preserve_filters', FALSE),
     '#description' => t('Allow users to preserve filters when changing their search.'),
   );
+  $form['islandora_solr_tabs']['advanced_search_block']['islandora_solr_human_friendly_query_block'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Human-friendly Current Query'),
+    '#default_value' => variable_get('islandora_solr_human_friendly_query_block', TRUE),
+    '#description' => t('Use labels instead of raw field names when displaying an advanced search in the Current Query block.'),
+  );
 
   // Query defaults.
   $form['islandora_solr_tabs']['query_defaults'] = array(
@@ -546,6 +552,12 @@ function islandora_solr_admin_settings($form, &$form_state) {
       Consider using <strong>fgs_createdDate_dt:[* TO NOW]</strong> or <strong>*:*</strong><br />'),
     '#default_value' => variable_get('islandora_solr_base_query', '*:*'),
   );
+  $form['islandora_solr_tabs']['query_defaults']['islandora_solr_base_advanced'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use default query for empty advanced searches too'),
+    '#description' => t('When selected, an empty advanced search will perform the same as an empty simple search. If not selected, empty advanced searches will search *:*'),
+    '#default_value' => variable_get('islandora_solr_base_advanced', FALSE),
+  );
   $form['islandora_solr_tabs']['query_defaults']['islandora_solr_base_sort'] = array(
     '#type' => 'textfield',
     '#title' => t('Sort field for default query'),
@@ -568,7 +580,17 @@ function islandora_solr_admin_settings($form, &$form_state) {
     '#type' => 'textarea',
     '#title' => t('Query fields'),
     '#default_value' => variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type'),
-    '#description' => t('In case there are no <a href="!url" target="_blank" title="Solr query fields documentation">query fields</a> defined in the request handler, this setting will be used as a fallback.', array('!url' => 'http://wiki.apache.org/solr/DisMaxQParserPlugin#qf_.28Query_Fields.29')),
+    '#description' => t('<a href="@url" target="_blank" title="Solr query fields documentation">Query fields</a> to use for DisMax (simple) searches.', array(
+      '@url' => 'http://wiki.apache.org/solr/DisMaxQParserPlugin#qf_.28Query_Fields.29',
+    )),
+  );
+  $form['islandora_solr_tabs']['query_defaults']['islandora_solr_use_ui_qf'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Prefer defined query fields?'),
+    '#default_value' => variable_get('islandora_solr_use_ui_qf', FALSE),
+    '#description' => t('Use the above "@qf" by default; otherwise, they will only be used as a fallback in the case there are none defined in the selected request handler.', array(
+      '@qf' => t('Query fields'),
+    )),
   );
 
   // Required Solr fields.
@@ -679,6 +701,48 @@ function islandora_solr_admin_settings($form, &$form_state) {
     drupal_set_message(t('Error: the settings have not been saved.'), 'error');
   }
   return $form;
+}
+
+/**
+ * Confirmation for reset solr settings.
+ *
+ * @param array $form
+ *   Array containing all form elements.
+ * @param array $form_state
+ *   The form_state array of the form. Includes the values.
+ *
+ * @return array
+ *   Rendered confirmation form.
+ */
+function islandora_solr_admin_settings_default_confirm_form(array $form, array &$form_state) {
+  $form = confirm_form($form,
+    t('Confirm settings reset to default'),
+    'admin/islandora/search/islandora_solr/settings/',
+    t('Confirm reset settings to default, this cannot be undone.'),
+    t('Continue'),
+    t('Cancel')
+  );
+  return $form;
+}
+
+/**
+ * If user confirms reset solr settings delete settings.
+ *
+ * Iterate through an array of Solr settings and remove the present values,
+ * redirect user back to settings page.
+ *
+ * @param array $form
+ *   Array containing all form elements.
+ * @param array $form_state
+ *   The form_state array of the form. Includes the values.
+ */
+function islandora_solr_admin_settings_default_confirm_form_submit(array $form, array &$form_state) {
+  module_load_include('install', 'islandora_solr');
+  $vars = islandora_solr_search_settings_variables();
+  array_walk($vars, 'variable_del');
+  db_delete('islandora_solr_fields')->execute();
+  drupal_set_message(t('The configuration options have been reset to their default values.'));
+  $form_state['redirect'] = 'admin/islandora/search/islandora_solr/settings/';
 }
 
 /**
@@ -1251,16 +1315,7 @@ function _islandora_solr_admin_settings_submit($form, &$form_state) {
       break;
 
     case t('Reset to defaults'):
-      foreach ($form_state['values'] as $key => $value) {
-        variable_del($key);
-      }
-      variable_del('islandora_solr_primary_display');
-      variable_del('islandora_solr_request_handler');
-
-      db_delete('islandora_solr_fields')->execute();
-
-      drupal_set_message(t('The configuration options have been reset to their default values.'));
-      break;
+      $form_state['redirect'] = 'admin/islandora/search/islandora_solr/settings/confirmation';
   }
 
   // Clear caches.
@@ -1765,8 +1820,7 @@ function islandora_solr_admin_settings_result_fields($form, &$form_state, $varia
     $form['options']['snippet']['#disabled'] = TRUE;
   }
 
-  $luke_result = islandora_solr_get_luke(NULL, $solr_field);
-  if (isset($luke_result['fields'][$solr_field]['type']) && $luke_result['fields'][$solr_field]['type'] == 'date') {
+  if (islandora_solr_is_date_field($solr_field)) {
     $form['options']['date_format'] = array(
       '#type' => 'textfield',
       '#title' => t('Date format'),
@@ -1926,8 +1980,7 @@ function islandora_solr_admin_settings_facet_fields($form, &$form_state, $variab
     '#description' => t('A human-readable name.'),
   );
 
-  $luke_result = islandora_solr_get_luke(NULL, $solr_field);
-  if (isset($luke_result['fields'][$solr_field]['type']) && $luke_result['fields'][$solr_field]['type'] == 'date') {
+  if (islandora_solr_is_date_field($solr_field)) {
     // Add in defaults, to avoid isset() tests.
     $values += array(
       'range_facet_select' => 0,
