@@ -340,29 +340,39 @@ function islandora_solr_prepare_solr_results($solr_results) {
         array_walk($value, $truncate_func);
       }
 
-      // Add link to search.
-      if (in_array($field, $link_to_search)) {
-        $map_to_link = function ($original_value, $formatted_value) use ($field) {
-          $solr_query = format_string('!field:"!value"', array(
-            '!field' => $field,
-            '!value' => islandora_solr_lesser_escape($original_value),
-          ));
-          return l($formatted_value, "islandora/search/$solr_query", array(
-            'html' => TRUE,
-          ));
-        };
-        $value = array_map($map_to_link, (array) $original_value, (array) $value);
-      }
       // Truncate output based on the field rather than by value.
       if (array_key_exists($field, $truncate_length) && $truncate_length[$field]['maximum_length'] > 0 && isset($truncate_length[$field]['truncation_type']) && $truncate_length[$field]['truncation_type'] == 'whole_field_option') {
-        $value = islandora_solr_truncate_field_display($value, $truncate_length[$field]['maximum_length'], $truncate_length[$field]['add_ellipsis'], $truncate_length[$field]['wordsafe'], $truncate_length[$field]['wordsafe_length'], "<br />");
+        // Handle linking and truncating together.
+        $link_options = array(
+          'link_to_object' => in_array($field, $link_to_object),
+          'link_to_search' => in_array($field, $link_to_search),
+          'field' => $field,
+          'url' => $object_result['object_url'],
+          'options' => $options,
+        );
+        $value = islandora_solr_truncate_field_display($value, $truncate_length[$field]['maximum_length'], $truncate_length[$field]['add_ellipsis'], $truncate_length[$field]['wordsafe'], $truncate_length[$field]['wordsafe_length'], "<br />", $link_options);
       }
+      else {
+        // Add link to search.
+        if (in_array($field, $link_to_search)) {
+          $map_to_link = function ($original_value, $formatted_value) use ($field) {
+            $solr_query = format_string('!field:"!value"', array(
+              '!field' => $field,
+              '!value' => islandora_solr_lesser_escape($original_value),
+            ));
+            return l($formatted_value, "islandora/search/$solr_query", array(
+              'html' => TRUE,
+            ));
+          };
+          $value = array_map($map_to_link, (array) $original_value, (array) $value);
+        }
+        elseif (in_array($field, $link_to_object)) {
+          $value = l(implode($value), $object_result['object_url'], $options);
+        }
+      }
+
       // Implode.
       $value = is_array($value) ? implode(", ", $value) : $value;
-      // Add link to object.
-      if (in_array($field, $link_to_object)) {
-        $value = l($value, $object_result['object_url'], $options);
-      }
       $solr_doc[$field] = $value;
     }
     // Replace Solr doc rows.
@@ -375,6 +385,7 @@ function islandora_solr_prepare_solr_results($solr_results) {
  * Implements callback_islandora_basic_collection_query_backends().
  */
 function islandora_solr_islandora_basic_collection_backend_callable($collection_object, $page, $limit) {
+  module_load_include('inc', 'islandora_solr', 'includes/db');
   // XXX: We populate the global query class, to allow the sort and facet
   // blocks and the like to function.
   //global $_islandora_solr_queryclass;
@@ -398,6 +409,14 @@ function islandora_solr_islandora_basic_collection_backend_callable($collection_
   // end FLVC
   $qp->solrStart = $page * $limit;
   $qp->solrLimit = $limit;
+
+  if (variable_get('islandora_solr_collection_sort_block_override', FALSE) && isset($qp->internalSolrParams['sort'])) {
+    $qp->solrParams['sort'] = $qp->internalSolrParams['sort'];
+  }
+  else {
+    $qp->solrParams['sort'] = islandora_solr_get_collection_sort_string($collection_object->id, TRUE);
+  }
+
   $qp->executeQuery();
 
   $map_to_pids = function ($result) {
@@ -410,8 +429,7 @@ function islandora_solr_islandora_basic_collection_backend_callable($collection_
 };
 
 /**
- * Truncate the field display based on entire field result(s).
- *
+ * Truncate and link the field display based on entire field result(s).
  *
  * @param array $display_values
  *   An array of the values that are to be processed for truncation.
@@ -425,6 +443,13 @@ function islandora_solr_islandora_basic_collection_backend_callable($collection_
  *   Min wordsafe length.
  * @param string $separator
  *   A separator to use for display output.
+ * @param array|NULL $link_options
+ *   (Optional) An array of link options including:
+ *   - 'link_to_object' : (bool) Include link to object.
+ *   - 'link_to_search' : (bool) Include link to search results.
+ *   - 'field' : (SOLR Result Field) Result field.
+ *   - 'url' : (SOLR object results object_url) objects result url.
+ *   - 'options' : link to object l() options param.
  *
  * @return string
  *   The updated display values.
@@ -456,19 +481,7 @@ function islandora_solr_truncate_field_display($display_values, $max_length, $ad
         break;
       }
     }
-/* temporary replace until update to 7.x-1.7 or later
-    $updated_display_values
-      = '<span class="toggle-wrapper">' .
-      t("<span>!value !separator<a href='#' class='toggler'>Show more</a></span>", array(
-        '!separator' => $separator,
-        '!value' => implode($separator, $truncated_list),
-      )) .
-      t("<span>!original_value !separator<a href='#' class='toggler'>Show less</a></span>", array(
-        '!separator' => $separator,
-        '!original_value' => implode($separator, $display_values),
-      )) .
-      '</span>';
-*/
+
     $original_value = implode($separator, $updated_display_values);
     $truncated_value = implode($separator, $truncated_list);
     if ($link_options !== NULL) {
@@ -516,3 +529,26 @@ function islandora_solr_truncate_field_display($display_values, $max_length, $ad
   }
   return $updated_display_values;
 };
+
+/**
+ * Check the field type against the user-specified list of date field types.
+ *
+ * @param string $solr_field
+ *   The Solr field name
+ *
+ * @return bool
+ *   Whether the field matches the date field types.
+ */
+function islandora_solr_is_date_field($solr_field) {
+  $date_types = array(
+    'org.apache.solr.schema.DateField',
+    'org.apache.solr.schema.TrieDateField',
+  );
+  $luke_result = islandora_solr_get_luke(NULL, $solr_field);
+  $type = (isset($luke_result['fields'][$solr_field]['type']) ? $luke_result['fields'][$solr_field]['type'] : FALSE);
+  if ($type) {
+    $class = islandora_solr_get_type_class($type);
+    return in_array($class, $date_types);
+  }
+  return FALSE;
+}
