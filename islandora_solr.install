@@ -237,6 +237,7 @@ function islandora_solr_update_7001() {
 /**
  * Fix the table islandora_solr_collection_sort_strings, if possible.
  */
+/* FLVC - not playing nice with postgres, and not needed
 function islandora_solr_update_7002() {
   module_load_include('inc', 'islandora', 'includes/utilities');
   $schema = islandora_solr_schema();
@@ -282,6 +283,7 @@ function islandora_solr_update_7002() {
   );
   db_add_primary_key('islandora_solr_collection_sort_strings', array('collection_pid'));
 }
+*/
 
 /**
  * List of all variables used for solr settings.
