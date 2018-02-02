@@ -382,7 +382,7 @@ EOQ;
       if (variable_get('islandora_solr_use_ui_qf', FALSE) || !islandora_solr_check_dismax()) {
         // Put our "qf" in if we are configured to, or we have none from the
         // request handler.
-        $this->solrParams['qf'] = variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type');
+        $this->solrParams['qf'] = variable_get('islandora_solr_query_fields', 'dc.title^5 dc.subject^2 dc.description^2 dc.creator^2 dc.contributor^1 dc.type catch_all_fields_mt^1');
       }
     }
 
