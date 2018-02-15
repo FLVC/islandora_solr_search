@@ -586,6 +586,17 @@ EOQ;
           if (isset($value) && !empty($value))
             $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
         }
+        // add PURL field
+        if (($field == 'mods_location_url_purl_ms')&&(isset($doc['mods_location_url_ms']))) {
+          $value = array();
+          foreach ($doc['mods_location_url_ms'] as $location_url) {
+            if (strstr($location_url,'purl.')) {
+              $value[] = l($location_url, $location_url);
+            }
+          }
+          if (isset($value) && !empty($value))
+            $rows[$field] = is_array($value) ? implode(", ", $value) : $value;
+        }
       }
       // 2: If limit is not set, add other fields.
       if ($limit_results == 0) {
