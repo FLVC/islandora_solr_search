@@ -591,7 +591,7 @@ EOQ;
           $value = array();
           foreach ($doc['mods_location_url_ms'] as $location_url) {
             if (strstr($location_url,'purl.')) {
-              $value[] = l($location_url, $location_url);
+              $value[] = $location_url;
             }
           }
           if (isset($value) && !empty($value))
