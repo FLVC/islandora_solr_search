@@ -285,6 +285,7 @@ function islandora_solr_prepare_solr_results($solr_results) {
   $truncate_length = islandora_solr_get_truncate_length_fields();
   $link_to_search = islandora_solr_get_link_to_search_fields();
   $date_format = islandora_solr_get_date_format_fields();
+  $link_to_field_value = islandora_solr_get_link_to_field_value_fields();
 
   // Loop over object results.
   foreach ($object_results as $object_index => $object_result) {
@@ -346,6 +347,7 @@ function islandora_solr_prepare_solr_results($solr_results) {
         $link_options = array(
           'link_to_object' => in_array($field, $link_to_object),
           'link_to_search' => in_array($field, $link_to_search),
+          'link_to_field_value' => in_array($field, $link_to_field_value),
           'field' => $field,
           'url' => $object_result['object_url'],
           'options' => $options,
@@ -365,6 +367,16 @@ function islandora_solr_prepare_solr_results($solr_results) {
             ));
           };
           $value = array_map($map_to_link, (array) $original_value, (array) $value);
+        }
+        // Add link to field value.
+        if (in_array($field, $link_to_field_value)) {
+          $fld_values = explode(',',$original_value);
+          $value = array();
+          foreach ($fld_values as $fld_value) {
+            $value[] = l($fld_value, $fld_value, array(
+              'html' => TRUE,
+            ));
+          }
         }
         elseif (in_array($field, $link_to_object)) {
           $value = l(implode($value), $object_result['object_url'], $options);

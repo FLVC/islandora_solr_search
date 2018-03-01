@@ -333,3 +333,17 @@ function islandora_solr_set_collection_sort_string($pid, $string) {
     drupal_set_message(t('No change was made to the sort string for collection @collection.', $message_args));
   }
 }
+
+/**
+ * Return display fields with 'link to object' enabled.
+ */
+function islandora_solr_get_link_to_field_value_fields() {
+  $records = islandora_solr_get_fields('result_fields', TRUE, FALSE);
+  $link_to_field_value_fields = array();
+  foreach ($records as $key => $value) {
+    if (isset($value['solr_field_settings']['link_to_field_value']) && $value['solr_field_settings']['link_to_field_value'] == 1) {
+      $link_to_field_value_fields[] = $value['solr_field'];
+    }
+  }
+  return $link_to_field_value_fields;
+}

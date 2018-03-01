@@ -1253,12 +1253,16 @@ function _islandora_solr_admin_settings_submit($form, &$form_state) {
                   $link_choice = $solr_field_settings['link_rendering'];
                   $solr_field_settings['link_to_object'] = FALSE;
                   $solr_field_settings['link_to_search'] = FALSE;
+                  $solr_field_settings['link_to_field_value'] = FALSE;
 
                   if ($link_choice === 'object') {
                     $solr_field_settings['link_to_object'] = TRUE;
                   }
                   elseif ($link_choice === 'search') {
                     $solr_field_settings['link_to_search'] = TRUE;
+                  }
+                  elseif ($link_choice === 'field_value') {
+                    $solr_field_settings['link_to_field_value'] = TRUE;
                   }
                   unset($solr_field_settings['link_rendering']);
                 }
@@ -1790,6 +1794,7 @@ function islandora_solr_admin_settings_result_fields($form, &$form_state, $varia
     'none' => t('None'),
     'object' => t("Link this field to the object's page."),
     'search' => t("Link the value to a Solr search result. (NOTE: Will likely break with very large values.)"),
+    'field_value' => t("Link this field to the field value. Assumes field contains a URL."),
   );
   $default_link = 'none';
 
@@ -1801,6 +1806,9 @@ function islandora_solr_admin_settings_result_fields($form, &$form_state, $varia
   }
   elseif (isset($values['link_to_search']) && $values['link_to_search'] != FALSE) {
     $default_link = 'search';
+  }
+  elseif (isset($values['link_to_field_value']) && $values['link_to_field_value'] != FALSE) {
+    $default_link = 'field_value';
   }
   $form['options']['link_rendering'] = array(
     '#type' => 'radios',
