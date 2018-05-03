@@ -655,6 +655,9 @@ EOQ;
       'info:fedora/islandora:personCModel' => 'Institutional Scholar',
       'info:fedora/islandora:eventCModel' => 'Institutional Event',
       'info:fedora/islandora:placeCModel' => 'Institutional Place',
+      'info:fedora/islandora:comparativeEditionCModel' => 'Comparative Edition',
+      'info:fedora/islandora:comparativeEditionPageCModel' => 'Comparative Edition Page',
+      'info:fedora/islandora:comparativeEditionWitnessCModel' => 'Comparative Edition Witness',
     );
 
     if (isset($format_array[$hasModel])) {
