@@ -419,6 +419,9 @@ class IslandoraSolrResults {
         if ($filter_split[0] == 'RELS_EXT_hasModel_uri_ms') {
             $facetdisplay = $this->getFormat($filter_string);
         }
+        if ($filter_split[0] == 'mods_accessCondition_use_and_reproduction_reuse_or_not_ms') {
+            $facetdisplay = $this->getReuseLabel($filter_string);
+        }
         $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($facetdisplay) . '</a>'
               . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
 
@@ -737,6 +740,20 @@ EOQ;
     return 'unknown';
   }
 
+  function getReuseLabel($reusecode) {
+    $reuse_array = array(
+      'flvc_rights_free_reuse' => 'Free Re-use',
+      'flvc_rights_limited_reuse' => 'Limited Re-use',
+      'flvc_rights_no_reuse' => 'No Re-use',
+    );
+
+    if (isset($reuse_array[$reusecode])) {
+        return $reuse_array[$reusecode];
+    }
+
+    return 'unknown';
+  }
+
 }
 
 /**
@@ -1013,6 +1030,9 @@ class IslandoraSolrFacets {
       }
       if ($facet_field == 'RELS_EXT_hasModel_uri_ms') {
           $bucket_value = $this->getFormat($bucket);
+      }
+      if ($facet_field == 'mods_accessCondition_use_and_reproduction_reuse_or_not_ms') {
+          $bucket_value = $this->getReuseLabel($bucket);
       }
       $facet_results[] = array(
         'count' => $count,
@@ -1688,6 +1708,20 @@ EOQ;
 
     if (isset($format_array[$hasModel])) {
         return $format_array[$hasModel];
+    }
+
+    return 'unknown';
+  }
+
+  function getReuseLabel($reusecode) {
+    $reuse_array = array(
+      'flvc_rights_free_reuse' => 'Free Re-use',
+      'flvc_rights_limited_reuse' => 'Limited Re-use',
+      'flvc_rights_no_reuse' => 'No Re-use',
+    );
+
+    if (isset($reuse_array[$reusecode])) {
+        return $reuse_array[$reusecode];
     }
 
     return 'unknown';

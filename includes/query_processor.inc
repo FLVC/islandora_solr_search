@@ -577,6 +577,9 @@ EOQ;
           else if ($field == 'RELS_EXT_hasModel_uri_ms') {
               $value = $this->getFormat($doc[$field][0]);
           }
+          else if ($field == 'mods_accessCondition_use_and_reproduction_reuse_or_not_ms') {
+              $value = $this->getReuseLabel($doc[$field][0]);
+          }
           else if ((($field == 'mods_titleInfo_title_ms')||($field == 'mods_titleInfo_title_mt'))&&(isset($fields_filtered['title_display_ms']))&&(isset($doc['title_display_ms']))&&(!empty($doc['title_display_ms']))) {
             $value = '';
           }
@@ -662,6 +665,20 @@ EOQ;
 
     if (isset($format_array[$hasModel])) {
         return $format_array[$hasModel];
+    }
+
+    return 'unknown';
+  }
+
+  function getReuseLabel($reusecode) {
+    $reuse_array = array(
+      'flvc_rights_free_reuse' => 'Free Re-use',
+      'flvc_rights_limited_reuse' => 'Limited Re-use',
+      'flvc_rights_no_reuse' => 'No Re-use',
+    );
+
+    if (isset($reuse_array[$reusecode])) {
+        return $reuse_array[$reusecode];
     }
 
     return 'unknown';
