@@ -166,6 +166,14 @@ class IslandoraSolrQueryProcessor {
       }
     }
 
+
+    // Check if PID is part of the query - escape :
+    if (strstr($this->solrQuery, "PID:")) {
+       $newQuery = substr($this->solrQuery,4);
+       $newQuery = str_replace(':', '\:', $newQuery);
+       $this->solrQuery = 'PID:' . $newQuery;
+    }
+
     // Set display property (so display plugin modules can use this in a
     // conditional to alter the query class).
     if (isset($this->internalSolrParams['display'])) {
