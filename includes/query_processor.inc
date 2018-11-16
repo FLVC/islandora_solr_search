@@ -168,7 +168,8 @@ class IslandoraSolrQueryProcessor {
 
 
     // Check if PID is part of the query - escape :
-    if (strstr($this->solrQuery, "PID:")) {
+    //if (strstr($this->solrQuery, "PID:")) {
+  if (preg_match('/^PID:\([a-zA-Z]+:[0-9a-zA-Z]+\)$/', $this->solrQuery)){
        $newQuery = substr($this->solrQuery,4);
        $newQuery = str_replace(':', '\:', $newQuery);
        $this->solrQuery = 'PID:' . $newQuery;
