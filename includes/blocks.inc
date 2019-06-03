@@ -94,6 +94,14 @@ function islandora_solr_islandora_solr_query_blocks() {
       'function' => 'islandora_solr_search_navigation',
       'form' => NULL,
     ),
+    'result_limit' => array(
+      'name' => t('Islandora search result limit'),
+      'module' => 'islandora_solr',
+      'file' => 'includes/blocks.inc',
+      'class' => NULL,
+      'function' => 'islandora_solr_search_results_limit',
+      'form' => NULL,
+    ),
   );
 }
 
@@ -112,6 +120,40 @@ function islandora_solr_block_info() {
     );
   }
   return $blocks;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function islandora_solr_block_configure($delta = '') {
+  if ($delta == 'simple') {
+    $form = array();
+    $form['islandora_solr_simple_search_label_title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Simple Search Label'),
+      '#size' => 30,
+      '#default_value' => variable_get('islandora_solr_simple_search_label_title', 'Search Term'),
+      '#description' => t('Customize label text associated with search input form. Accessibility guidelines recommend whenever possible to explicitly associate label text with form inputs.'),
+      '#required' => TRUE,
+    );
+    $form['islandora_solr_simple_search_label_visibility'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Simple Search Label Visibility'),
+      '#default_value' => variable_get('islandora_solr_simple_search_label_visibility', TRUE),
+      '#description' => t('Display the label alongside the simple search input. If unchecked, label will be visibly hidden but will be kept available for screen-readers.'),
+    );
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function islandora_solr_block_save($delta = '', $edit = array()) {
+  if ($delta == 'simple') {
+    variable_set('islandora_solr_simple_search_label_title', $edit['islandora_solr_simple_search_label_title']);
+    variable_set('islandora_solr_simple_search_label_visibility', $edit['islandora_solr_simple_search_label_visibility']);
+  }
 }
 
 /**
@@ -624,10 +666,20 @@ EOQ;
     '#default_value' => $collection_selected,
   );
 
-  $form['simple']['islandora_simple_search_query'] = array(
+  if (variable_get('islandora_solr_simple_search_label_visibility', TRUE) == FALSE) {
+    $title_visible = 'invisible';
+  }
+  else {
+    $title_visible = 'before';
+  }
+
+  $title_label = variable_get('islandora_solr_simple_search_label_title', 'Search Term');
+
+  $form['simple']["islandora_simple_search_query"] = array(
     '#size' => '15',
     '#type' => 'textfield',
-    '#title' => t("for"),
+    '#title' => check_plain($title_label),
+    '#title_display' => $title_visible,
     // @todo Should this be the searched value?
     '#default_value' => '',
   );
@@ -638,7 +690,6 @@ EOQ;
   );
   return $form;
 }
-
 
 /**
  * Islandora Solr simple search form submit callback.
@@ -813,9 +864,7 @@ EOQ;
 
         // Second part of the split is the query value (or first part of it).
         $value_split[1] = str_replace(array('(', ')'), '', $value_split[1]);
-
-        $values['terms'][$i]['search'] = $value_split[1];
-
+        $values['terms'][$i]['search'] = stripslashes($value_split[1]);
       }
       // If the string does not include a colon or AND/OR/NOT, then it is a
       // part of the query value.
@@ -824,12 +873,13 @@ EOQ;
         $value = str_replace(array('(', ')'), '', $value);
 
         if (isset($values['terms'][$i]['search'])) {
+          $values['terms'][$i]['search'] = $values['terms'][$i]['search'];
           // Append to search string.
-          $values['terms'][$i]['search'] .= ' ' . $value;
+          $values['terms'][$i]['search'] .= ' ' . stripslashes($value);
         }
         else {
           // Search field is not set, so create new search value.
-          $values['terms'][$i]['search'] = $value;
+          $values['terms'][$i]['search'] = stripslashes($value);
         }
       }
       // If it matches AND/OR/NOT, then we have the boolean operator.
@@ -848,6 +898,7 @@ EOQ;
       'terms' => array(''),
     );
   }
+
   $terms = array(
     '#type' => 'markup',
     '#prefix' => '<div id="islandora-solr-advanced-terms">',
@@ -863,14 +914,16 @@ EOQ;
     $term['field'] = array(
       '#title' => t('Field'),
       '#type' => 'select',
-      '#default_value' => isset($value['field']) ? $value['field'] : 'dc.title',
+      '#default_value' => isset($value['field']) ? $value['field'] : NULL,
       '#options' => islandora_solr_get_fields('search_fields'),
     );
     $term['search'] = array(
       '#title' => t('Search terms'),
       '#type' => 'textfield',
       '#size' => 20,
-      '#default_value' => isset($value['search']) ? $value['search'] : '',
+      '#default_value' => (isset($value['search']) ?
+        $value['search'] :
+        ''),
     );
     // Used for when the user presses enter on the search field.
     $term['hidden_submit'] = array(
@@ -911,6 +964,8 @@ EOQ;
           '#type' => 'select',
           '#prefix' => '<div>',
           '#suffix' => '</div>',
+          '#title' => t('Operator'),
+          '#title_display' => 'invisible',
           '#default_value' => isset($value['boolean']) ? $value['boolean'] : 'AND',
           '#options' => array(
             'AND' => 'AND',
@@ -984,16 +1039,30 @@ function _islandora_solr_advanced_search_terms($form, &$form_state) {
  */
 function islandora_solr_advanced_search_form_submit($form, &$form_state) {
   module_load_include('inc', 'islandora_solr', 'includes/utilities');
+
   // Collect query values.
   $query_array = array();
+
+  // Get Lucene syntax escaping configuration, prior to the following
+  // foreach loop.
+  $lucene_syntax_escape = variable_get('islandora_solr_advanced_search_block_lucene_syntax_escape', FALSE);
+  $lucene_regex = variable_get(
+    'islandora_solr_advanced_search_block_lucene_regex_default',
+    ISLANDORA_SOLR_QUERY_FACET_LUCENE_ESCAPE_REGEX_DEFAULT
+  );
+
   foreach ($form_state['values']['terms'] as $term) {
-    $field = $term['field'];
+    $field = islandora_solr_lesser_escape($term['field']);
     $search = trim($term['search']);
-    $search = islandora_solr_replace_slashes($search);
+
     $boolean = (isset($term['boolean'])) ? $term['boolean'] : variable_get('islandora_solr_search_boolean', 'user');
-    $field = islandora_solr_lesser_escape($field);
+
     // Add query.
     if (!empty($search)) {
+      $search = $lucene_syntax_escape ?
+        islandora_solr_facet_query_escape($search, $lucene_regex) :
+        islandora_solr_lesser_escape($search);
+
       $query_array[] = array(
         'search' => "$field:($search)",
         'boolean' => $boolean,
@@ -1021,6 +1090,7 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
       $query = '*:*';
     }
   }
+
   // Handle filters.
   $filter = '';
   if (isset($form_state['values']['islandora_solr_allow_preserve_filters']) && $form_state['values']['islandora_solr_allow_preserve_filters']) {
@@ -1032,6 +1102,9 @@ function islandora_solr_advanced_search_form_submit($form, &$form_state) {
   if (isset($collection) && !empty($collection)) {
       $params = array_merge($params, array('collection' => $collection));
   }
+
+  // Use work around for some special URL characters.
+  $query = islandora_solr_replace_slashes($query);
 
   // Navigate to results page.
 /*
@@ -1687,8 +1760,9 @@ function islandora_solr_sort() {
       $current_sort_order = isset($sort_explode[1]) ? $sort_explode[1] : NULL;
     }
     else {
-      // If no parameters are given, internally solr defaults to 'score desc'
-      // http://wiki.apache.org/solr/CommonQueryParameters#sort
+      // If no parameters are given, internally solr defaults to 'score desc'.
+      // See Common Query Paremeters section:
+      // http://archive.apache.org/dist/lucene/solr/ref-guide/
       $current_sort_term = 'score';
       $current_sort_order = 'desc';
     }
@@ -1902,4 +1976,52 @@ function islandora_solr_search_navigation() {
     ));
   }
   return $return;
+}
+
+/**
+ * Search results page size block.
+ *
+ * Use the limit URL param to increase or decrease the result page size.
+ *
+ * @return string
+ *   The rendered html for the block content.
+ */
+function islandora_solr_search_results_limit() {
+  global $_islandora_solr_queryclass;
+  // Check if the page is dealing with search results.
+  if (islandora_solr_results_page($_islandora_solr_queryclass)) {
+    $default_limit = variable_get('islandora_solr_num_of_results', '20');
+    $limits = variable_get('islandora_solr_num_of_results_advanced', array());
+    $params = drupal_get_query_parameters();
+    $path = current_path();
+    if (isset($params['limit']) && is_numeric($params['limit'])) {
+      $default_limit = $params['limit'];
+    }
+    $limit_list = array();
+    foreach ($limits as $limit) {
+      if ($limit == $default_limit) {
+        $limit_list[] = $limit;
+      }
+      else {
+        $attr = array();
+        $attr['rel'] = 'nofollow';
+        $query = $params;
+        $query['limit'] = $limit;
+        unset($query['page']);
+        $attr['href'] = url($path, array('query' => $query));
+        // XXX: We're not using l() because of
+        // @link http://drupal.org/node/41595 active classes. @endlink
+        $limit_list[] = '<a' . drupal_attributes($attr) . '>' . $limit . '</a>';
+      }
+    }
+
+    if (!empty($limit_list)) {
+      return theme('item_list', array(
+        'items' => $limit_list,
+        'title' => NULL,
+        'type' => 'ul',
+        'attributes' => array('id' => 'islandora_solr_results_limit'),
+      ));
+    }
+  }
 }
