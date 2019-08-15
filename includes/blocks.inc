@@ -673,7 +673,7 @@ EOQ;
     $title_visible = 'before';
   }
 
-  $title_label = variable_get('islandora_solr_simple_search_label_title', 'Search Term');
+  $title_label = variable_get('islandora_solr_simple_search_label_title', 'for');
 
   $form['simple']["islandora_simple_search_query"] = array(
     '#size' => '15',
