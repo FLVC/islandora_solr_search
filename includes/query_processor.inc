@@ -631,6 +631,7 @@ EOQ;
     $fields_filtered = islandora_solr_get_fields('result_fields');
     $fields_no_permission = array_diff($fields_all, $fields_filtered);
 
+    module_load_include('inc', 'islandora_solr', 'includes/utilities');
     // Loop over object results.
     foreach ($object_results as $object_index => $object_result) {
       $doc = $object_result['solr_doc'];
@@ -653,6 +654,12 @@ EOQ;
           }
           else if ($field == 'mods_accessCondition_use_and_reproduction_reuse_or_not_ms') {
               $value = $this->getReuseLabel($doc[$field][0]);
+          }
+          else if ($field == 'mods_accessCondition_use_and_reproduction_rightsstatements_org_ms') {
+              $value = getRightsLabel($doc[$field][0]);
+          }
+          else if ($field == 'mods_accessCondition_use_and_reproduction_creative_commons_ms') {
+              $value = getRightsLabel($doc[$field][0]);
           }
           else if ((($field == 'mods_titleInfo_title_ms')||($field == 'mods_titleInfo_title_mt'))&&(isset($fields_filtered['title_display_ms']))&&(isset($doc['title_display_ms']))&&(!empty($doc['title_display_ms']))) {
             $value = '';

@@ -356,6 +356,7 @@ class IslandoraSolrResults {
    *   An array of breadcrumbs.
    */
   public function getBreadcrumbs($islandora_solr_query) {
+    module_load_include('inc', 'islandora_solr', 'includes/utilities');
     // $_GET['q'] didn't seem to work here.
     $path = current_path();
     // Get date format.
@@ -441,6 +442,12 @@ class IslandoraSolrResults {
         }
         if ($filter_split[0] == 'mods_accessCondition_use_and_reproduction_reuse_or_not_ms') {
             $facetdisplay = $this->getReuseLabel($filter_string);
+        }
+        if ($filter_split[0] == 'mods_accessCondition_use_and_reproduction_rightsstatements_org_ms') {
+            $facetdisplay = getRightsLabel($filter_string);
+        }
+        if ($filter_split[0] == 'mods_accessCondition_use_and_reproduction_creative_commons_ms') {
+            $facetdisplay = getRightsLabel($filter_string);
         }
         $breadcrumb[] = '<a' . drupal_attributes($attr) . '>' . check_plain($facetdisplay) . '</a>'
               . '<span class="islandora-solr-breadcrumb-super"> <a' . drupal_attributes($attr_x) . '>(' . t('x') . ')</a></span>';
@@ -1081,6 +1088,12 @@ class IslandoraSolrFacets {
       }
       if ($facet_field == 'mods_accessCondition_use_and_reproduction_reuse_or_not_ms') {
           $bucket_value = $this->getReuseLabel($bucket);
+      }
+      if ($facet_field == 'mods_accessCondition_use_and_reproduction_rightsstatements_org_ms') {
+          $bucket_value = getRightsLabel($bucket);
+      }
+      if ($facet_field == 'mods_accessCondition_use_and_reproduction_creative_commons_ms') {
+          $bucket_value = getRightsLabel($bucket);
       }
       $facet_results[] = array(
         'count' => $count,

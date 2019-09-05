@@ -752,3 +752,44 @@ function islandora_solr_get_filter_tags() {
 
   return $filter_tags;
 }
+
+/**
+ * Translate values for usage rights URI into human readable result(s).
+ *
+ * @param string $rightsuri
+ *   usage right URI
+ *
+ * @return string
+ *   The updated display value
+ */
+function getRightsLabel($rightsuri) {
+    $rights_array = array(
+      'http://rightsstatements.org/vocab/NoC-US/1.0/' => 'No Copyright US',
+      'http://rightsstatements.org/vocab/NKC/1.0/' => 'No Known Copyright',
+      'http://rightsstatements.org/vocab/NoC-NC/1.0/' => 'No Copyright, Non-Commercial Use Only',
+      'http://rightsstatements.org/vocab/InC-EDU/1.0/' => 'In Copyright, Educational Use Permitted',
+      'http://rightsstatements.org/vocab/InC-NC/1.0/' => 'In Copyright, Non-Commercial Use Permitted',
+      'http://rightsstatements.org/vocab/NoC-CR/1.0/' => 'No Copyright, Contractual Restrictions',
+      'http://rightsstatements.org/vocab/NoC-OKLR/1.0/' => 'No Copyright, Other Known Legal Restrictions',
+      'http://rightsstatements.org/vocab/CNE/1.0/' => 'Copyright Not Evaluated',
+      'http://rightsstatements.org/vocab/UND/1.0/' => 'Copyright Undetermined',
+      'http://rightsstatements.org/vocab/InC/1.0/' => 'In Copyright',
+      'http://rightsstatements.org/vocab/InC-RUU/1.0/' => 'In Copyright, Rights-holder(s) Unlocatable or Unidentifiable',
+      'http://rightsstatements.org/vocab/InC-OW-EU/1.0/' => 'In Copyright, EU Orphan Work',
+      'http://creativecommons.org/publicdomain/mark/1.0/' => 'Public Domain Dedication',
+      'http://creativecommons.org/licenses/by-sa/4.0/' => 'Creative Commons license: Attribution (by), Share Alike',
+      'http://creativecommons.org/licenses/by/4.0/' => 'Creative Commons license: Attribution (by)',
+      'http://creativecommons.org/publicdomain/zero/1.0/' => 'Public Domain',
+      'http://creativecommons.org/licenses/by-nc/4.0/' => 'Creative Commons license: Attribution (by), Non-Commercial',
+      'http://creativecommons.org/licenses/by-nc-nd/4.0/' => 'Creative Commons license: Attribution (by), Non-Commercial, No Derivatives',
+      'http://creativecommons.org/licenses/by-nd/4.0/' => 'Creative Commons license: Attribution (by), No Derivatives',
+      'http://creativecommons.org/licenses/by-nc-sa/4.0/' => 'Creative Commons license: Attribution (by), Non-Commercial, Share Alike',
+    );
+
+    #$rightsuri = preg_replace("/[^a-zA-Z]/", "", $string);
+    if (isset($rights_array[$rightsuri])) {
+        return $rights_array[$rightsuri];
+    }
+
+    return $rightsuri;
+}
